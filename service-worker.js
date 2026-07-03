@@ -1,5 +1,5 @@
-const CACHE = 'tmb-golgothes-2026-v9-darkfix';
-const CORE = ['./','index.html','style.css','script.js','data.js','manifest.webmanifest','assets/icon.svg'];
+const CACHE = 'tmb-golgothes-2026-v11-iconfix';
+const CORE = ['./','index.html','style.css','script.js','data.js','manifest.webmanifest','icon.svg'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).then(()=>self.skipWaiting()));
 });

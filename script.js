@@ -144,7 +144,12 @@
       ['🗓️',t.days,'jours de marche'], ['🥾',String(t.km).replace('.',','),'km marche estimés'], ['⛰️','+'+fmt(t.dp)+' m','D+ cumulé'], ['⚠️',missing,'point hébergement à régler']
     ].map((c,i)=>`<article class="metric-card ${i===3&&missing?'warning':''}"><div class="icon">${c[0]}</div><div class="value">${c[1]}</div><div class="label">${c[2]}</div></article>`).join('');
     const miss=stages.find(s=>s.status==='missing');
-    $('#priorityCard').innerHTML = `<div class="priority-eyebrow">⚠️ ACTION REQUISE</div><h3>Priorité actuelle</h3><p><b>${miss.key} · ${esc(miss.from)} → ${esc(miss.to)}</b></p><p>${esc(miss.lodging)}.</p><p class="muted small">${esc(miss.priorityText || 'À verrouiller : hébergement, horaires de navette et marge horaire.')}</p><button class="btn btn-primary" data-stage-detail="${stages.indexOf(miss)}">Ouvrir la fiche ${esc(miss.key)}</button>`;
+    if(miss){
+      $('#priorityCard').innerHTML = `<div class="priority-eyebrow">⚠️ ACTION REQUISE</div><h3>Priorité actuelle</h3><p><b>${miss.key} · ${esc(miss.from)} → ${esc(miss.to)}</b></p><p>${esc(miss.lodging)}.</p><p class="muted small">${esc(miss.priorityText || 'À verrouiller : hébergement, horaires de navette et marge horaire.')}</p><button class="btn btn-primary" data-stage-detail="${stages.indexOf(miss)}">Ouvrir la fiche ${esc(miss.key)}</button>`;
+    } else {
+      // Toutes les nuits sont calées : afficher un rappel positif + prochaine action
+      $('#priorityCard').innerHTML = `<div class="priority-eyebrow" style="color:#7ecfa0">✓ TOUT EST CALÉ</div><h3>Hébergements complets</h3><p>Les 8 nuits sont réservées ou planifiées, bivouacs inclus.</p><p class="muted small">Dernières actions : réserver le Camping Grandes Jorasses (J4), vérifier les horaires été 2026 du bus 924 et régler la Flégère sur place (216 €).</p><button class="btn btn-primary" data-stage-detail="3">Ouvrir la fiche J4</button>`;
+    }
   }
   function renderStagePicker(){
     $('#stagePicker').innerHTML = stages.map((s,i)=>`<button class="stage-dot ${i===selectedStage?'is-active':''}" data-stage-button="${i}">${s.key}</button>`).join('');

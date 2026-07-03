@@ -8,7 +8,7 @@
   "description": "Carnet mobile du Tour du Mont Blanc Golgothes 2026",
   "icons": [
     {
-      "src": "assets/icon.svg",
+      "src": "icon.svg",
       "sizes": "any",
       "type": "image/svg+xml"
     }
