@@ -39,6 +39,20 @@
     return idx >= 0 ? idx : 0;
   }
   function cumulativeKm(stage, ratio){ return stage.km * ratio; }
+  function cumulativeEffort(stage, ratio){
+    // km-effort accumulé proportionnellement : distance + D+/100 + D-/300, pondéré par la progression sur le profil
+    const p = stage.profile; if(!p || p.length < 2) return (stage.effort||0)*ratio;
+    const limit = Math.max(1, Math.floor((p.length-1)*ratio));
+    let dp=0, dm=0;
+    for(let i=1;i<=limit;i++){ const d=p[i]-p[i-1]; if(d>0) dp+=d; else dm+=Math.abs(d); }
+    const distPart = stage.km * ratio;
+    // mise à l'échelle du dénivelé réel du profil vers le D+/D- officiel de l'étape
+    const totalUp = (function(){let u=0;for(let i=1;i<p.length;i++){const d=p[i]-p[i-1];if(d>0)u+=d;}return u||1;})();
+    const totalDn = (function(){let u=0;for(let i=1;i<p.length;i++){const d=p[i]-p[i-1];if(d<0)u+=Math.abs(d);}return u||1;})();
+    const dpScaled = (dp/totalUp) * stage.dp;
+    const dmScaled = (dm/totalDn) * stage.dm;
+    return distPart + dpScaled/100 + dmScaled/300;
+  }
   function currentAlt(stage, ratio){ const p=stage.profile; if(!p.length) return null; const x=ratio*(p.length-1); const i=Math.floor(x); const f=x-i; return Math.round((p[i]||p[0])*(1-f)+(p[i+1]||p[p.length-1])*f); }
 
   function setCanvas(canvas, h=220){
@@ -67,63 +81,76 @@
     for(let i=1;i<=max;i++) ctx.lineTo(pts[i][0], pts[i][1]);
     ctx.stroke(); ctx.restore();
   }
-  function drawRouteCanvas(){
-    const canvas = $('#routeCanvas'); const {ctx,w,h}=setCanvas(canvas, canvas.clientWidth < 520 ? 290 : 430);
-    const stage=stages[selectedStage], color=colorFor(stage);
-    ctx.clearRect(0,0,w,h);
-    const bg=ctx.createLinearGradient(0,0,w,h); bg.addColorStop(0,'#111916'); bg.addColorStop(1,'#254b55'); ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
-    // light contour lines
-    ctx.globalAlpha=.18; ctx.strokeStyle='#fff'; ctx.lineWidth=1;
-    for(let i=0;i<7;i++){ ctx.beginPath(); const y=(h/8)*(i+1); ctx.moveTo(18,y); for(let x=18;x<w-18;x+=24){ ctx.lineTo(x,y+Math.sin((x+i*17)/45)*4); } ctx.stroke(); }
-    ctx.globalAlpha=1;
-    const allPts=project(routeCoords,w,h,28); drawPath(ctx,allPts,'rgba(255,255,255,.28)',2,1,1);
-    const pts=project(stage.coords,w,h,28); drawPath(ctx,pts,color,5,.38,1); drawPath(ctx,pts,'#fff',2,.85,progress);
-    const idx = Math.min(pts.length-1, Math.floor(progress*(pts.length-1))); const dot=pts[idx] || pts[0];
-    if(dot){ ctx.beginPath(); ctx.arc(dot[0],dot[1],8,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill(); ctx.beginPath(); ctx.arc(dot[0],dot[1],4,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); }
-    ctx.fillStyle='rgba(255,255,255,.92)'; ctx.font='900 16px system-ui';
-    const titleText = `${stage.key} · ${stage.from} → ${stage.to}`;
-    const maxW = w - 44;
-    let truncated = titleText;
-    while(ctx.measureText(truncated).width > maxW && truncated.length > 8) truncated = truncated.slice(0,-1);
-    if(truncated !== titleText) truncated = truncated.slice(0,-1) + '…';
-    ctx.fillText(truncated, 22, 32);
-    ctx.font='800 12px system-ui'; ctx.fillStyle='rgba(255,255,255,.70)'; ctx.fillText(`${stage.km} km · +${fmt(stage.dp)} m · -${fmt(stage.dm)} m · ${stage.duration}`,22,52);
-  }
+  function drawRouteCanvas(){ /* canvas d'accueil retiré */ }
+  function isDark(){ return document.documentElement.classList.contains('dark'); }
   function drawProfile(canvas, stage, ratio=1){
-    const {ctx,w,h}=setCanvas(canvas, Number(canvas.dataset.h) || (canvas.classList.contains('mini-profile') ? 90 : 145));
-    const p=stage.profile, min=Math.min(...p), max=Math.max(...p), range=max-min || 1, pad={t:12,r:10,b:18,l:10};
-    const color=colorFor(stage); ctx.clearRect(0,0,w,h); ctx.fillStyle='#fffdf8'; ctx.fillRect(0,0,w,h);
-    ctx.strokeStyle='rgba(31,36,33,.08)'; ctx.lineWidth=1; for(let i=1;i<4;i++){ const y=pad.t+(h-pad.t-pad.b)*i/4; ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(w-pad.r,y); ctx.stroke(); }
+    if(!canvas) return;
+    const {ctx,w,h}=setCanvas(canvas, Number(canvas.dataset.h) || (canvas.classList.contains('mini-profile') ? 96 : 150));
+    const p=stage.profile, min=Math.min(...p), max=Math.max(...p), range=max-min || 1, pad={t:14,r:10,b:20,l:10};
+    const color=colorFor(stage);
+    const dark=isDark();
+    const bg = dark ? '#1a2420' : '#fffdf8';
+    const gridCol = dark ? 'rgba(255,255,255,.06)' : 'rgba(31,36,33,.08)';
+    const txtCol = dark ? 'rgba(255,255,255,.75)' : 'rgba(31,36,33,.72)';
+    ctx.clearRect(0,0,w,h); ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle=gridCol; ctx.lineWidth=1; for(let i=1;i<4;i++){ const y=pad.t+(h-pad.t-pad.b)*i/4; ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(w-pad.r,y); ctx.stroke(); }
     const x=i => pad.l + (i/(p.length-1))*(w-pad.l-pad.r); const y=v => h-pad.b-((v-min)/range)*(h-pad.t-pad.b);
     const limit = Math.max(1, Math.floor((p.length-1)*ratio));
-    const grad=ctx.createLinearGradient(0,0,0,h); grad.addColorStop(0,color+'50'); grad.addColorStop(1,color+'08');
+    const grad=ctx.createLinearGradient(0,0,0,h); grad.addColorStop(0,color+(dark?'55':'50')); grad.addColorStop(1,color+'08');
     ctx.beginPath(); ctx.moveTo(pad.l,h-pad.b); for(let i=0;i<=limit;i++) ctx.lineTo(x(i),y(p[i])); ctx.lineTo(x(limit),h-pad.b); ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
     ctx.beginPath(); ctx.moveTo(x(0),y(p[0])); for(let i=1;i<=limit;i++) ctx.lineTo(x(i),y(p[i])); ctx.strokeStyle=color; ctx.lineWidth=2.5; ctx.lineJoin='round'; ctx.stroke();
-    const curAlt=currentAlt(stage,ratio); ctx.fillStyle='rgba(31,36,33,.72)'; ctx.font='800 11px system-ui'; ctx.fillText(`${stage.alt_start} m`,pad.l,h-5); ctx.textAlign='center'; ctx.fillText(`max ${stage.alt_max} m`,w/2,h-5); ctx.textAlign='right'; ctx.fillText(`${stage.alt_end} m`,w-pad.r,h-5); ctx.textAlign='left';
-    if(ratio < 1 && curAlt){ const xi=x(limit); const yi=y(curAlt); ctx.beginPath(); ctx.arc(xi,yi,5,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); }
-  }
-  function updateVideoInfo(){
-    const s=stages[selectedStage], alt=currentAlt(s,progress); const km=cumulativeKm(s,progress);
-    $('#videoStageInfo').innerHTML = `<span class="badge ${statusClass(s)}">${esc(s.badge)}</span><h3>${esc(s.key)} · ${esc(s.from)} → ${esc(s.to)}</h3><p class="muted">${esc(s.date)} · ${esc(s.country)}</p><div class="stage-stats"><div class="info-tile"><div class="label">Progression</div><div class="value">${Math.round(progress*100)} %</div></div><div class="info-tile"><div class="label">Distance</div><div class="value">${km.toFixed(1)} km</div></div><div class="info-tile"><div class="label">Altitude</div><div class="value">${alt||'—'} m</div></div><div class="info-tile"><div class="label">Nuit</div><div class="value">${esc(s.statusLabel)}</div></div></div><p class="small"><b>Hébergement :</b> ${esc(s.lodging)}</p>`;
-    $('#progressBar').style.width = `${Math.round(progress*100)}%`;
-    $all('.stage-dot').forEach((btn,i)=>btn.classList.toggle('is-active',i===selectedStage));
-  }
-  function drawVideo(){ drawRouteCanvas(); drawProfile($('#profileCanvas'), stages[selectedStage], progress); updateVideoInfo(); }
-  function animate(ts){
-    if(!playing){ lastTs=null; return; }
-    if(lastTs == null) lastTs = ts;
-    const speed = Number($('#speedSelect').value || 1);
-    progress += (ts-lastTs) / (BASE_DURATION / speed);
-    lastTs = ts;
-    if(progress >= 1){
-      progress = 1; drawVideo();
-      if(playAllMode && selectedStage < stages.length-1){ selectedStage++; progress=0; lastTs=null; updateAllSelected(); requestAnimationFrame(animate); return; }
-      playing=false; playAllMode=false; $('#playSelected').textContent='▶ Revoir'; $('#playAll').textContent='Lire les 9 étapes'; return;
+    const curAlt=currentAlt(stage,ratio); ctx.fillStyle=txtCol; ctx.font='800 11px system-ui'; ctx.textAlign='left'; ctx.fillText(`${stage.alt_start} m`,pad.l,h-6); ctx.textAlign='center'; ctx.fillText(`max ${stage.alt_max} m`,w/2,h-6); ctx.textAlign='right'; ctx.fillText(`${stage.alt_end} m`,w-pad.r,h-6); ctx.textAlign='left';
+    if(ratio < 1 && curAlt){
+      const xi=x(limit), yi=y(curAlt);
+      ctx.beginPath(); ctx.arc(xi,yi,5,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
+      ctx.strokeStyle=dark?'#1a2420':'#fff'; ctx.lineWidth=2; ctx.stroke();
     }
-    drawVideo(); requestAnimationFrame(animate);
   }
-  function startVideo(all=false){ playing=true; playAllMode=all; if(progress>=1) progress=0; $('#playSelected').textContent='⏸ Lecture'; $('#playAll').textContent=all?'⏸ Lecture complète':'Lire les 9 étapes'; requestAnimationFrame(animate); }
-  function selectStage(i){ selectedStage=Math.max(0,Math.min(stages.length-1,i)); progress=0; playing=false; playAllMode=false; lastTs=null; updateAllSelected(); drawVideo(); }
+  // ── Moteur d'animation du profil altimétrique, ciblé sur un canvas d'étape ──
+  let animState = { canvas:null, stageIdx:0, progress:0, playing:false, lastTs:null, infoEl:null };
+
+  /* updateAnimInfo retiré */
+  function drawAnim(){ if(animState.canvas) drawProfile(animState.canvas, stages[animState.stageIdx], animState.progress); updateCardAnimInfo(); }
+  /* animTick retiré */
+  /* startAnim retiré */
+  /* resetAnim retiré */
+  // ── Animation ciblée sur la carte d'étape d'index donné ──
+  function startCardAnim(idx){
+    const canvas = document.querySelector(`[data-anim-canvas="${idx}"]`);
+    const info = document.querySelector(`[data-anim-info="${idx}"]`);
+    const bar = document.querySelector(`[data-anim-bar="${idx}"]`);
+    const btn = document.querySelector(`[data-anim-play="${idx}"]`);
+    const speedEl = document.querySelector(`[data-anim-speed="${idx}"]`);
+    if(!canvas) return;
+    // (re)démarrage
+    animState = { canvas, stageIdx: idx, progress: (animState.stageIdx===idx && animState.progress<1)?animState.progress:0, playing:true, lastTs:null, infoEl:info, bar, btn, speedEl };
+    if(btn) btn.textContent = '⏸ Lecture';
+    requestAnimationFrame(cardAnimTick);
+  }
+  function cardAnimTick(ts){
+    if(!animState.playing){ animState.lastTs=null; return; }
+    if(animState.lastTs==null) animState.lastTs=ts;
+    const speed = animState.speedEl ? Number(animState.speedEl.value||1) : 1;
+    animState.progress += (ts-animState.lastTs)/(BASE_DURATION/speed);
+    animState.lastTs=ts;
+    const done = animState.progress>=1;
+    if(done) animState.progress=1;
+    if(animState.canvas) drawProfile(animState.canvas, stages[animState.stageIdx], animState.progress);
+    updateCardAnimInfo();
+    if(done){ animState.playing=false; if(animState.btn) animState.btn.textContent='↻ Revoir'; return; }
+    requestAnimationFrame(cardAnimTick);
+  }
+  function updateCardAnimInfo(){
+    if(!animState.infoEl) return;
+    const s=stages[animState.stageIdx], r=animState.progress;
+    const km=cumulativeKm(s,r), alt=currentAlt(s,r), eff=cumulativeEffort(s,r);
+    animState.infoEl.innerHTML = `<div class="anim-metrics"><div class="anim-metric"><span class="anim-metric__label">Distance</span><span class="anim-metric__value">${km.toFixed(1)}<small>/${s.km} km</small></span></div><div class="anim-metric"><span class="anim-metric__label">Altitude</span><span class="anim-metric__value">${alt||'—'}<small>m</small></span></div><div class="anim-metric anim-metric--effort ${effortClass(eff)}"><span class="anim-metric__label">Km-effort</span><span class="anim-metric__value">${eff.toFixed(1)}<small>/${s.effort}</small></span></div></div>`;
+    if(animState.bar) animState.bar.style.width = `${Math.round(r*100)}%`;
+  }
+  // Compat : anciennes signatures neutralisées (le video-panel d'accueil a été retiré)
+  function drawVideo(){ /* retiré de l'accueil */ }
+  function startVideo(){ /* retiré : l'animation vit désormais dans les fiches d'étapes */ switchTab('stages'); }
+  function selectStage(i){ selectedStage=Math.max(0,Math.min(stages.length-1,i)); animState.progress=0; animState.playing=false; animState.lastTs=null; updateAllSelected(); }
   function updateAllSelected(){
     $('#stageSelect').value=String(selectedStage);
     $all('[data-stage-button]').forEach(btn=>btn.classList.toggle('is-active',Number(btn.dataset.stageButton)===selectedStage));
@@ -152,11 +179,7 @@
       $('#priorityCard').innerHTML = `<div class="priority-eyebrow" style="color:#7ecfa0">✓ TOUT EST CALÉ</div><h3>Hébergements complets</h3><p>Les 8 nuits sont réservées ou planifiées, bivouacs inclus.</p><p class="muted small">Dernières actions : réserver le Camping Grandes Jorasses (J4), vérifier les horaires été 2026 du bus 924 et régler la Flégère sur place (216 €).</p><button class="btn btn-primary" data-stage-detail="3">Ouvrir la fiche J4</button>`;
     }
   }
-  function renderStagePicker(){
-    $('#stagePicker').innerHTML = stages.map((s,i)=>`<button class="stage-dot ${i===selectedStage?'is-active':''}" data-stage-button="${i}">${s.key}</button>`).join('');
-    $('#stageSelect').innerHTML = stages.map((s,i)=>`<option value="${i}">${s.key} · ${esc(s.from)} → ${esc(s.to)}</option>`).join('');
-    $('#stageSelect').value=String(selectedStage);
-  }
+  function renderStagePicker(){ /* stage-picker d'accueil retiré */ }
   function renderPrep(){
     const priorities = [
       ['J4 Courmayeur', 'Réserver une nuit à Courmayeur du 23 au 24 juillet, idéalement près de Piazzale Monte Bianco ou d’un arrêt de navette.', 'missing'],
@@ -258,12 +281,86 @@ Hébergement : ${s.lodging}`;
   }
   function renderTrekCard(){
     const s=stages[selectedStage];
-    $('#trekCard').innerHTML = `<div class="trek-hero"><div><span class="badge ${statusClass(s)}">${esc(s.badge)}</span><h3>${esc(s.key)} · ${esc(s.from)} → ${esc(s.to)}</h3><p class="muted">${esc(s.date)} · ${esc(s.country)} · difficulté ${esc(s.difficulty)}</p></div><div class="trek-hero-actions"><button class="btn" data-copy-brief="${selectedStage}">Copier le briefing</button><button class="btn btn-primary" data-play-stage="${selectedStage}">▶ Aperçu</button></div></div><div class="trek-stats">${stageStatsHTML(s)}</div><div class="trek-intro"><p>${esc(s.briefing||s.trekNote)}</p><div class="mood-chip">${esc(s.mood||'Ambiance de l’étape')}</div></div><div class="trek-enriched">${logisticsHTML(s)}<section class="trek-section landmarks"><div class="section-mini"><span>📍</span><h3>À ne pas manquer aujourd’hui</h3></div><div class="landmark-grid">${landmarkHTML(s)}</div></section><section class="trek-section"><div class="section-mini"><span>💡</span><h3>Le saviez-vous ?</h3></div><div class="anecdote-grid">${anecdoteHTML(s)}</div></section><section class="trek-section terrain-panel"><div class="terrain-card"><h3>Conseil terrain</h3><p>${esc(s.terrain||s.trekNote)}</p></div><div class="terrain-card"><h3>Pause / ravito</h3><p>${esc(s.ravito||'À vérifier avant le départ.')}</p></div><div class="terrain-card danger-soft"><h3>Vigilance</h3>${listHTML(s.vigilance||[], 'vigilance-list')}</div></section><section class="trek-section"><div class="section-mini"><span>🧭</span><h3>Repères de progression</h3></div><div class="progression-list">${progressionHTML(s)}</div></section><section class="trek-section trek-bottom"><div class="glass-card"><h3>Profil altimétrique</h3><canvas class="mini-profile" data-profile="${selectedStage}" data-h="145"></canvas><p class="muted small">Départ ${fmt(s.alt_start)} m · max ${fmt(s.alt_max)} m · arrivée ${fmt(s.alt_end)} m.</p></div><div class="glass-card"><h3>Mémo du soir</h3><p><b>Hébergement :</b> ${esc(s.lodging)}</p><p><b>Focus sac :</b> ${esc(s.packFocus)}</p><p><b>Km-effort :</b> <span class="effort-badge ${effortClass(s.effort)}">${esc(s.effort)}</span> · ${esc(s.difficulty)}</p><p class="muted small">${s.km} km + ${s.effort_detail ? s.effort_detail.from_dplus : Math.round(s.dp/100*10)/10} (D+) + ${s.effort_detail ? s.effort_detail.from_dmoins : Math.round(s.dm/300*10)/10} (D-)</p></div></section></div><section class=\"trek-section\"><div class=\"section-mini\"><span>🛠</span><h3>Outils terrain</h3></div><div class=\"utility-grid\"><a class=\"utility-card weather\" href=\"${meteoUrl(s)}\" target=\"_blank\" rel=\"noopener\"><span class=\"utility-icon\">🌤</span><div><b>Météo du col</b><span>Ouvrir Météo Blue</span></div></a><div class=\"utility-card emergency\"><span class=\"utility-icon\">🆘</span><div><b>Urgences</b><span>${emergencyNumbers(s)}</span></div></div><button class=\"utility-card share\" id=\"shareLocBtn\"><span class=\"utility-icon\">📍</span><div><b>Ma position</b><span>Partager le lien</span></div></button>${s.logistics ? '<a class=\"utility-card bus\" href=\"https://www.arriva.vda.it/en/routes-and-timetables\" target=\"_blank\" rel=\"noopener\"><span class=\"utility-icon\">🚌</span><div><b>Bus Val Ferret</b><span>Horaires Arriva</span></div></a>' : ''}</div></section>`;
+    $('#trekCard').innerHTML = `
+      <div class="trek-hero">
+        <div>
+          <span class="badge ${statusClass(s)}">${esc(s.badge)}</span>
+          <h3>${esc(s.key)} · ${esc(s.from)} → ${esc(s.to)}</h3>
+          <p class="muted">${esc(s.date)} · ${esc(s.country)} · <span class="effort-badge ${effortClass(s.effort)}">${esc(s.effort)} km-effort</span> · ${esc(s.difficulty)}</p>
+        </div>
+        <div class="trek-hero-actions">
+          <button class="btn" data-copy-brief="${selectedStage}">Copier le briefing</button>
+        </div>
+      </div>
+      <div class="trek-stats">${stageStatsHTML(s)}</div>
+      <section class="trek-section trek-profile-top">
+        <div class="section-mini"><span>📈</span><h3>Profil altimétrique</h3></div>
+        <canvas class="mini-profile" data-profile="${selectedStage}" data-h="170"></canvas>
+        <p class="muted small">Départ ${fmt(s.alt_start)} m · max ${fmt(s.alt_max)} m · arrivée ${fmt(s.alt_end)} m · <b>${s.km} km</b> · +${fmt(s.dp)} m / -${fmt(s.dm)} m · <b>${s.effort} km-effort</b></p>
+      </section>
+      <details class="acc" open>
+        <summary><span class="acc__icon">🧭</span> Briefing de l'étape</summary>
+        <div class="acc__body">
+          <div class="trek-intro"><p>${esc(s.briefing||s.trekNote)}</p><div class="mood-chip">${esc(s.mood||'Ambiance de l\'étape')}</div></div>
+        </div>
+      </details>
+      ${s.logistics ? `<details class="acc" open><summary><span class="acc__icon">🚌</span> Logistique & transport</summary><div class="acc__body">${logisticsHTML(s)}</div></details>` : ''}
+      <details class="acc">
+        <summary><span class="acc__icon">📍</span> À ne pas manquer aujourd'hui</summary>
+        <div class="acc__body"><div class="landmark-grid">${landmarkHTML(s)}</div></div>
+      </details>
+      <details class="acc">
+        <summary><span class="acc__icon">💡</span> Le saviez-vous ?</summary>
+        <div class="acc__body"><div class="anecdote-grid">${anecdoteHTML(s)}</div></div>
+      </details>
+      <details class="acc">
+        <summary><span class="acc__icon">⛰️</span> Terrain, ravito & vigilance</summary>
+        <div class="acc__body"><div class="terrain-panel"><div class="terrain-card"><h3>Conseil terrain</h3><p>${esc(s.terrain||s.trekNote)}</p></div><div class="terrain-card"><h3>Pause / ravito</h3><p>${esc(s.ravito||'À vérifier avant le départ.')}</p></div><div class="terrain-card danger-soft"><h3>Vigilance</h3>${listHTML(s.vigilance||[], 'vigilance-list')}</div></div></div>
+      </details>
+      <details class="acc">
+        <summary><span class="acc__icon">🧭</span> Repères de progression</summary>
+        <div class="acc__body"><div class="progression-list">${progressionHTML(s)}</div></div>
+      </details>
+      <details class="acc">
+        <summary><span class="acc__icon">🛠</span> Outils terrain & mémo du soir</summary>
+        <div class="acc__body">
+          <div class="utility-grid"><a class="utility-card weather" href="${meteoUrl(s)}" target="_blank" rel="noopener"><span class="utility-icon">🌤</span><div><b>Météo du col</b><span>Ouvrir Météo Blue</span></div></a><div class="utility-card emergency"><span class="utility-icon">🆘</span><div><b>Urgences</b><span>${emergencyNumbers(s)}</span></div></div><button class="utility-card share" id="shareLocBtn"><span class="utility-icon">📍</span><div><b>Ma position</b><span>Partager le lien</span></div></button></div>
+          <div class="glass-card" style="margin-top:12px"><h3>Mémo du soir</h3><p><b>Hébergement :</b> ${esc(s.lodging)}</p><p><b>Focus sac :</b> ${esc(s.packFocus)}</p><p><b>Km-effort :</b> <span class="effort-badge ${effortClass(s.effort)}">${esc(s.effort)}</span> · ${esc(s.difficulty)}</p></div>
+        </div>
+      </details>`;
     setTimeout(()=>drawProfile($(`[data-profile="${selectedStage}"]`, $('#trekCard')), s, 1));
   }
   function renderStages(filter='all'){
-    $('#stageCards').innerHTML = stages.map((s,i)=>({s,i})).filter(({s})=>filter==='all'||s.status===filter).map(({s,i})=>`<article class="stage-card ${statusClass(s)}" id="stage-${s.key}"><div class="stage-title-row"><div><span class="badge ${statusClass(s)}">${esc(s.badge)}</span><h3>${esc(s.key)} · ${esc(s.from)} → ${esc(s.to)}</h3><p class="muted small">${esc(s.date)} · ${esc(s.country)}</p></div></div><div class="stage-stats">${stageStatsHTML(s)}</div><canvas class="mini-profile" data-card-profile="${i}"></canvas><p><b>Hébergement :</b> ${esc(s.lodging)}</p><div class="points">${s.points.map(p=>`<span class="point">${esc(p)}</span>`).join('')}</div><details class="details"><summary>Voir la fiche complète</summary><p>${esc(s.trekNote)}</p><p><b>Altitude :</b> départ ${fmt(s.alt_start)} m · max ${fmt(s.alt_max)} m · arrivée ${fmt(s.alt_end)} m.</p><p><b>Km-effort :</b> <span class="effort-badge ${effortClass(s.effort)}">${esc(s.effort)}</span> · ${esc(s.difficulty)} <span class="muted small">(${s.km} + ${s.effort_detail ? s.effort_detail.from_dplus : Math.round(s.dp/100*10)/10} D+ + ${s.effort_detail ? s.effort_detail.from_dmoins : Math.round(s.dm/300*10)/10} D-)</span></p><p><b>À prévoir :</b> ${esc(s.packFocus)}</p>${s.logistics ? `<div class="transport-card compact"><b>Logistique :</b>${listHTML(s.logistics.items||[], 'transport-list')}</div>` : ''}<div class="quick-actions"><button class="btn" data-goto="trek" data-select-stage="${i}">Ouvrir en mode trek</button><button class="btn" data-goto="map" data-select-stage="${i}">Voir sur la carte</button><button class="btn btn-primary" data-play-stage="${i}">Aperçu animé</button></div></details></article>`).join('');
-    // Double rendu : immédiat + après layout pour les cartes hors viewport
+    $('#stageCards').innerHTML = stages.map((s,i)=>({s,i})).filter(({s})=>filter==='all'||s.status===filter).map(({s,i})=>`<article class="stage-card ${statusClass(s)}" id="stage-${s.key}">
+      <div class="stage-title-row"><div><span class="badge ${statusClass(s)}">${esc(s.badge)}</span><h3>${esc(s.key)} · ${esc(s.from)} → ${esc(s.to)}</h3><p class="muted small">${esc(s.date)} · ${esc(s.country)}</p></div></div>
+      <div class="stage-stats">${stageStatsHTML(s)}</div>
+      <canvas class="mini-profile" data-card-profile="${i}"></canvas>
+      <details class="acc acc--anim" data-anim-stage="${i}">
+        <summary><span class="acc__icon">🎬</span> Aperçu animé du profil</summary>
+        <div class="acc__body">
+          <canvas class="anim-canvas" data-anim-canvas="${i}" data-h="150"></canvas>
+          <div class="anim-controls">
+            <button class="btn btn-primary anim-play" data-anim-play="${i}">▶ Lire le profil</button>
+            <select class="anim-speed" data-anim-speed="${i}" aria-label="Vitesse"><option value="0.75">Doux</option><option value="1" selected>Normal</option><option value="1.5">Rapide</option><option value="2.5">Rapide+</option></select>
+          </div>
+          <div class="anim-progress"><div class="anim-progress-bar" data-anim-bar="${i}"></div></div>
+          <div class="anim-info" data-anim-info="${i}"></div>
+        </div>
+      </details>
+      <p class="stage-lodging"><b>Hébergement :</b> ${esc(s.lodging)}</p>
+      <div class="points">${s.points.map(p=>`<span class="point">${esc(p)}</span>`).join('')}</div>
+      <details class="acc">
+        <summary><span class="acc__icon">📄</span> Fiche complète</summary>
+        <div class="acc__body">
+          <p>${esc(s.trekNote)}</p>
+          <p><b>Altitude :</b> départ ${fmt(s.alt_start)} m · max ${fmt(s.alt_max)} m · arrivée ${fmt(s.alt_end)} m.</p>
+          <p><b>Km-effort :</b> <span class="effort-badge ${effortClass(s.effort)}">${esc(s.effort)}</span> · ${esc(s.difficulty)} <span class="muted small">(${s.km} + ${s.effort_detail?s.effort_detail.from_dplus:Math.round(s.dp/100*10)/10} D+ + ${s.effort_detail?s.effort_detail.from_dmoins:Math.round(s.dm/300*10)/10} D-)</span></p>
+          <p><b>À prévoir :</b> ${esc(s.packFocus)}</p>
+          ${s.logistics ? `<div class="transport-card compact"><b>Logistique :</b>${listHTML(s.logistics.items||[], 'transport-list')}</div>` : ''}
+          <div class="quick-actions"><button class="btn" data-goto="trek" data-select-stage="${i}">Ouvrir en mode trek</button></div>
+        </div>
+      </details>
+    </article>`).join('');
     requestAnimationFrame(()=>{
       $all('[data-card-profile]').forEach(c=>drawProfile(c, stages[Number(c.dataset.cardProfile)], 1));
       setTimeout(()=>$all('[data-card-profile]').forEach(c=>drawProfile(c, stages[Number(c.dataset.cardProfile)], 1)), 300);
@@ -398,7 +495,9 @@ Hébergement : ${s.lodging}`;
       const tab=e.target.closest('[data-tab]'); if(tab){ switchTab(tab.dataset.tab); return; }
       const go=e.target.closest('[data-goto]'); if(go){ if(go.dataset.selectStage!=null) selectStage(Number(go.dataset.selectStage)); switchTab(go.dataset.goto); return; }
       const stageBtn=e.target.closest('[data-stage-button]'); if(stageBtn){ selectStage(Number(stageBtn.dataset.stageButton)); return; }
-      const play=e.target.closest('[data-play-stage]'); if(play){ selectStage(Number(play.dataset.playStage)); switchTab('dashboard'); setTimeout(()=>startVideo(false),120); return; }
+      const play=e.target.closest('[data-play-stage]'); if(play){ selectStage(Number(play.dataset.playStage)); switchTab('stages'); setTimeout(()=>{ const c=$('#stage-'+stages[selectedStage].key); if(c) c.scrollIntoView({behavior:'smooth',block:'start'}); },150); return; }
+      const themeBtn=e.target.closest('#themeToggle'); if(themeBtn){ toggleTheme(); return; }
+      const animPlay=e.target.closest('[data-anim-play]'); if(animPlay){ startCardAnim(Number(animPlay.dataset.animPlay)); return; }
       const copyBrief=e.target.closest('[data-copy-brief]'); if(copyBrief){ const s=stages[Number(copyBrief.dataset.copyBrief)]; const text=buildTrekBrief(s); try{ await navigator.clipboard.writeText(text); toast('Briefing copié'); }catch{ toast('Copie indisponible'); } return; }
       const detail=e.target.closest('[data-stage-detail]'); if(detail){ selectStage(Number(detail.dataset.stageDetail)); switchTab('stages'); setTimeout(()=>document.getElementById(`stage-${stages[selectedStage].key}`)?.scrollIntoView({behavior:'smooth',block:'center'}),120); return; }
       const mapReload=e.target.closest('[data-map-reload]'); if(mapReload){ reloadMapTiles(); return; }
@@ -418,14 +517,15 @@ Hébergement : ${s.lodging}`;
       const mapStage=e.target.closest('[data-map-stage]'); if(mapStage){ $all('[data-map-stage]').forEach(b=>b.classList.remove('is-active')); mapStage.classList.add('is-active'); if(mapStage.dataset.mapStage==='all'){ if(map) { map.fitBounds(L.latLngBounds(routeCoords),{padding:[18,18]}); refreshMapSize(); } } else { selectStage(Number(mapStage.dataset.mapStage)); highlightMapStage(selectedStage,true); refreshMapSize(); } return; }
       const filter=e.target.closest('[data-filter]'); if(filter){ $all('[data-filter]').forEach(b=>b.classList.remove('is-active')); filter.classList.add('is-active'); renderStages(filter.dataset.filter); return; }
     });
-    $('#playSelected').addEventListener('click',()=> playing ? (playing=false, $('#playSelected').textContent='▶ Reprendre') : startVideo(false));
-    $('#playAll').addEventListener('click',()=> playing ? (playing=false, playAllMode=false, $('#playAll').textContent='Lire les 9 étapes') : startVideo(true));
-    $('#progressShell').addEventListener('pointerdown', e=>{ const r=e.currentTarget.getBoundingClientRect(); progress=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)); playing=false; drawVideo(); });
     $('#prevStage').addEventListener('click',()=>selectStage(selectedStage-1)); $('#nextStage').addEventListener('click',()=>selectStage(selectedStage+1)); $('#stageSelect').addEventListener('change',e=>selectStage(Number(e.target.value)));
     $('#printBtn').addEventListener('click',()=>window.print());
     $('#resetChecklist').addEventListener('click',()=>{ try{ localStorage.removeItem('tmb-checklist-v2'); }catch(e){} renderChecklist(); toast('Checklist réinitialisée'); });
     $('#exportChecklist').addEventListener('click',async()=>{ try{ await navigator.clipboard.writeText(checklistSummary()); toast('Bilan copié'); }catch{ toast(checklistSummary()); } });
     $('#checklistGrid').addEventListener('change',e=>{ if(e.target.matches('[data-check-key]')) saveChecklist(); });
+    // Vitesse d'animation : si on change pendant la lecture, rien à faire (lu dynamiquement). Au repos, ré-init de l'aperçu.
+    document.addEventListener('change', e=>{ const sp=e.target.closest('[data-anim-speed]'); if(sp){ const idx=Number(sp.dataset.animSpeed); const cv=document.querySelector(`[data-anim-canvas="${idx}"]`); if(cv && !animState.playing){ drawProfile(cv, stages[idx], 0); const info=document.querySelector(`[data-anim-info="${idx}"]`); if(info){ animState={...animState,stageIdx:idx,progress:0,infoEl:info,canvas:cv}; updateCardAnimInfo(); } } } });
+    // Ouverture d'un accordéon d'aperçu animé : dessiner le profil statique de départ
+    document.addEventListener('click', e=>{ const sum=e.target.closest('.acc--anim > summary'); if(sum){ const det=sum.parentElement; const idx=Number(det.dataset.animStage); setTimeout(()=>{ const cv=document.querySelector(`[data-anim-canvas="${idx}"]`); if(cv && det.open){ drawProfile(cv, stages[idx], 0); const info=document.querySelector(`[data-anim-info="${idx}"]`); if(info){ const saved={...animState}; animState={canvas:cv,stageIdx:idx,progress:0,playing:false,lastTs:null,infoEl:info,bar:document.querySelector(`[data-anim-bar="${idx}"]`),btn:document.querySelector(`[data-anim-play="${idx}"]`),speedEl:document.querySelector(`[data-anim-speed="${idx}"]`)}; updateCardAnimInfo(); } } }, 60); } });
     $('#groupNotes').addEventListener('input',e=>localSet('tmb-notes-v2',e.target.value));
     document.addEventListener('click', e=>{
       if(e.target.closest('#shareLocBtn')){
@@ -438,17 +538,31 @@ Hébergement : ${s.lodging}`;
         }, ()=>toast('Position refusée ou indisponible'));
       }
     });
-    window.addEventListener('resize',()=>{ drawVideo(); $all('[data-card-profile]').forEach(c=>drawProfile(c, stages[Number(c.dataset.cardProfile)], 1)); const cp=$(`[data-profile="${selectedStage}"]`, $('#trekCard')); if(cp) drawProfile(cp, stages[selectedStage], 1); if($('#mapFallback') && !$('#mapFallback').hidden) drawFallbackMap($('#mapFallback'),selectedStage); refreshMapSize(); });
+    window.addEventListener('resize',()=>{ drawAnim(); $all('[data-card-profile]').forEach(c=>drawProfile(c, stages[Number(c.dataset.cardProfile)], 1)); const cp=$(`[data-profile="${selectedStage}"]`, $('#trekCard')); if(cp) drawProfile(cp, stages[selectedStage], 1); if($('#mapFallback') && !$('#mapFallback').hidden) drawFallbackMap($('#mapFallback'),selectedStage); refreshMapSize(); });
   }
 
+  function applyThemeButton(){
+    const dark=isDark(); const btn=$('#themeToggle'); if(!btn) return;
+    const icon=btn.querySelector('.theme-toggle__icon'), label=btn.querySelector('.theme-toggle__label');
+    if(icon) icon.textContent = dark ? '☀️' : '🌙';
+    if(label) label.textContent = dark ? 'Clair' : 'Sombre';
+  }
   function initDarkMode(){
-    // Le site est toujours en dark mode — c'est le design de base
-    document.documentElement.classList.add('dark');
-    // On respecte quand même la préférence explicite light si l'utilisateur l'a sauvegardée
-    try {
-      const saved = localStorage.getItem('tmb-theme');
-      if(saved === 'light') document.documentElement.classList.remove('dark');
-    } catch(e) {}
+    // Dark par défaut ; la préférence explicite de l'utilisateur prime
+    let saved=null; try{ saved=localStorage.getItem('tmb-theme'); }catch(e){}
+    if(saved === 'light') document.documentElement.classList.remove('dark');
+    else document.documentElement.classList.add('dark');
+    applyThemeButton();
+  }
+  function toggleTheme(){
+    const nowDark = document.documentElement.classList.toggle('dark');
+    try{ localStorage.setItem('tmb-theme', nowDark ? 'dark' : 'light'); }catch(e){}
+    applyThemeButton();
+    // Redessiner tous les profils avec les bonnes couleurs
+    $all('[data-card-profile]').forEach(c=>drawProfile(c, stages[Number(c.dataset.cardProfile)], 1));
+    const tp=$(`[data-profile="${selectedStage}"]`, $('#trekCard')); if(tp) drawProfile(tp, stages[selectedStage], 1);
+    if(animState.canvas) drawAnim();
+    if(typeof fetchHeroWeather==='function'){} // météo inchangée
   }
 
   // ── Météo hero ──────────────────────────────────────────────────────────
@@ -529,7 +643,7 @@ Hébergement : ${s.lodging}`;
   // ────────────────────────────────────────────────────────────────────────
   function init(){
     initDarkMode(); renderHero(); renderDashboard();
-    fetchHeroWeather(); renderStagePicker(); renderPrep(); renderTrekCard(); renderStages(); renderBudget(); renderChecklist(); renderMapButtons(); bindEvents(); drawVideo();
+    fetchHeroWeather(); renderPrep(); renderTrekCard(); renderStages(); renderBudget(); renderChecklist(); renderMapButtons(); bindEvents();
     if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('service-worker.js').catch(()=>{});
   }
   init();

@@ -1,4 +1,4 @@
-const CACHE = 'tmb-golgothes-2026-v12-effort';
+const CACHE = 'tmb-golgothes-2026-v13-ux';
 const CORE = ['./','index.html','style.css','script.js','data.js','manifest.webmanifest','icon.svg'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).then(()=>self.skipWaiting()));

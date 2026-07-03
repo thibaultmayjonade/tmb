@@ -16,21 +16,19 @@
 </head>
 <body>
   <a class="skip-link" href="#content">Aller au contenu</a>
-  <header class="hero" id="top">
-    <div class="hero__content">
-      <div class="eyebrow">Carnet GPS · Version mobile</div>
-      <h1>Tour du <span>Mont Blanc</span></h1>
-      <p class="subtitle">Golgothes 2026 · 20–28 juillet · 9 étapes · compagnon de préparation et de marche</p>
-      <div class="hero-weather" id="heroWeather">
-        <div class="hw-loading">
-          <span class="hw-dot"></span>
-          <span>Chargement météo…</span>
-        </div>
+  <header class="hero hero--compact" id="top">
+    <div class="hero__bar">
+      <div class="hero__title">
+        <h1>Tour du <span>Mont Blanc</span></h1>
+        <p class="subtitle">Golgothes 2026 · 20–28 juillet · 9 étapes</p>
       </div>
-      <div class="hero-actions">
-        <button class="btn btn-primary" data-goto="trek">Mode trek enrichi</button>
-        <button class="btn btn-ghost" data-play-stage="0">Aperçu vidéo J1</button>
-      </div>
+      <button class="theme-toggle" id="themeToggle" aria-label="Basculer clair/sombre" title="Basculer clair/sombre">
+        <span class="theme-toggle__icon">🌙</span>
+        <span class="theme-toggle__label">Sombre</span>
+      </button>
+    </div>
+    <div class="hero-weather" id="heroWeather">
+      <div class="hw-loading"><span class="hw-dot"></span><span>Chargement météo…</span></div>
     </div>
     <div class="hero__stats" id="heroStats"></div>
   </header>
@@ -58,40 +56,12 @@
           <h3>Accès rapide</h3>
           <div class="quick-actions">
             <button class="btn btn-primary" data-goto="trek">Ouvrir l’étape du jour</button>
-            <button class="btn" data-goto="map">Voir la carte</button>
             <button class="btn" data-goto="checklist">Checklist</button>
             <button class="btn" id="printBtn">Version imprimable</button>
           </div>
           <p class="muted small">La carte interactive utilise Leaflet et des tuiles OpenStreetMap : elle est idéale en ligne. Les données principales, profils et fiches restent dans la page.</p>
         </article>
       </div>
-      <section class="video-panel" aria-labelledby="video-title">
-        <div class="video-panel__header">
-          <div>
-            <p class="overline">Aperçu animé</p>
-            <h2 id="video-title">Lire une étape comme une mini-vidéo</h2>
-          </div>
-          <div class="video-controls">
-            <button class="btn btn-primary" id="playSelected">▶ Lire</button>
-            <button class="btn" id="playAll">Lire les 9 étapes</button>
-            <select id="speedSelect" aria-label="Vitesse de lecture">
-              <option value="0.75">Doux</option>
-              <option value="1" selected>Normal</option>
-              <option value="1.5">Rapide</option>
-              <option value="2.25">Très rapide</option>
-            </select>
-          </div>
-        </div>
-        <div class="video-grid">
-          <canvas id="routeCanvas" class="route-canvas" aria-label="Tracé animé de l’étape"></canvas>
-          <div class="video-side">
-            <div class="stage-mini" id="videoStageInfo"></div>
-            <canvas id="profileCanvas" class="profile-canvas" aria-label="Profil altimétrique animé"></canvas>
-            <div class="progress-shell" id="progressShell"><div class="progress-bar" id="progressBar"></div></div>
-            <div class="stage-picker" id="stagePicker" aria-label="Choisir une étape"></div>
-          </div>
-        </div>
-      </section>
     </section>
 
     <section class="tab-panel" data-panel="prep">
