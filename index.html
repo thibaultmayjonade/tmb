@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="fr" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TMB Golgothes 2026 — Carnet mobile</title>
+  <meta name="description" content="Carnet mobile du Tour du Mont Blanc Golgothes 2026 : mode trek, cartes, profils GPS, hébergements, budget et checklist.">
+  <meta name="theme-color" content="#17201d">
+  <meta property="og:title" content="TMB Golgothes 2026 — Carnet mobile">
+  <meta property="og:description" content="9 étapes, mode trek enrichi, carte interactive, aperçu animé, budget et checklist.">
+  <meta property="og:type" content="website">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#content">Aller au contenu</a>
+  <header class="hero" id="top">
+    <div class="hero__content">
+      <div class="eyebrow">Carnet GPS · Version mobile</div>
+      <h1>Tour du <span>Mont Blanc</span></h1>
+      <p class="subtitle">Golgothes 2026 · 20–28 juillet · 9 étapes · compagnon de préparation et de marche</p>
+      <div class="hero-weather" id="heroWeather">
+        <div class="hw-loading">
+          <span class="hw-dot"></span>
+          <span>Chargement météo…</span>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <button class="btn btn-primary" data-goto="trek">Mode trek enrichi</button>
+        <button class="btn btn-ghost" data-play-stage="0">Aperçu vidéo J1</button>
+      </div>
+    </div>
+    <div class="hero__stats" id="heroStats"></div>
+  </header>
+
+  <nav class="app-nav" aria-label="Navigation principale">
+    <button class="nav-pill is-active" data-tab="dashboard">Accueil</button>
+    <button class="nav-pill" data-tab="prep">Préparation</button>
+    <button class="nav-pill" data-tab="trek">Trek</button>
+    <button class="nav-pill" data-tab="map">Carte</button>
+    <button class="nav-pill" data-tab="stages">Étapes</button>
+    <button class="nav-pill" data-tab="budget">Budget</button>
+    <button class="nav-pill" data-tab="checklist">Checklist</button>
+  </nav>
+
+  <main id="content" class="shell">
+    <section class="tab-panel is-active" data-panel="dashboard">
+      <div class="section-heading">
+        <p class="overline">Vue d’ensemble</p>
+        <h2>Le TMB en un coup d’œil</h2>
+      </div>
+      <div class="dashboard-grid" id="dashboardCards"></div>
+      <div class="panel-grid">
+        <article class="glass-card urgent-card" id="priorityCard"></article>
+        <article class="glass-card">
+          <h3>Accès rapide</h3>
+          <div class="quick-actions">
+            <button class="btn btn-primary" data-goto="trek">Ouvrir l’étape du jour</button>
+            <button class="btn" data-goto="map">Voir la carte</button>
+            <button class="btn" data-goto="checklist">Checklist</button>
+            <button class="btn" id="printBtn">Version imprimable</button>
+          </div>
+          <p class="muted small">La carte interactive utilise Leaflet et des tuiles OpenStreetMap : elle est idéale en ligne. Les données principales, profils et fiches restent dans la page.</p>
+        </article>
+      </div>
+      <section class="video-panel" aria-labelledby="video-title">
+        <div class="video-panel__header">
+          <div>
+            <p class="overline">Aperçu animé</p>
+            <h2 id="video-title">Lire une étape comme une mini-vidéo</h2>
+          </div>
+          <div class="video-controls">
+            <button class="btn btn-primary" id="playSelected">▶ Lire</button>
+            <button class="btn" id="playAll">Lire les 9 étapes</button>
+            <select id="speedSelect" aria-label="Vitesse de lecture">
+              <option value="0.75">Doux</option>
+              <option value="1" selected>Normal</option>
+              <option value="1.5">Rapide</option>
+              <option value="2.25">Très rapide</option>
+            </select>
+          </div>
+        </div>
+        <div class="video-grid">
+          <canvas id="routeCanvas" class="route-canvas" aria-label="Tracé animé de l’étape"></canvas>
+          <div class="video-side">
+            <div class="stage-mini" id="videoStageInfo"></div>
+            <canvas id="profileCanvas" class="profile-canvas" aria-label="Profil altimétrique animé"></canvas>
+            <div class="progress-shell" id="progressShell"><div class="progress-bar" id="progressBar"></div></div>
+            <div class="stage-picker" id="stagePicker" aria-label="Choisir une étape"></div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="tab-panel" data-panel="prep">
+      <div class="section-heading">
+        <p class="overline">Mode préparation</p>
+        <h2>Ce qu’il reste à verrouiller avant le départ</h2>
+      </div>
+      <div class="prep-layout">
+        <article class="glass-card">
+          <h3>Priorités d’organisation</h3>
+          <div id="prepPriorities"></div>
+        </article>
+        <article class="glass-card">
+          <h3>Hébergements</h3>
+          <div id="lodgingTimeline" class="timeline"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="tab-panel" data-panel="trek">
+      <div class="section-heading">
+        <p class="overline">Mode pendant le trek</p>
+        <h2>Étape du jour</h2>
+      </div>
+      <div class="trek-toolbar">
+        <button class="btn trek-nav-btn" id="prevStage" aria-label="Étape précédente">&#8592;</button>
+        <div class="trek-stage-label" id="trekStageLabel">J1 · Les Houches → Contamines</div>
+        <button class="btn trek-nav-btn" id="nextStage" aria-label="Étape suivante">&#8594;</button>
+        <select id="stageSelect" aria-label="Choisir l’étape" style="display:none"></select>
+      </div>
+      <article class="trek-card" id="trekCard"></article>
+    </section>
+
+    <section class="tab-panel" data-panel="map">
+      <div class="section-heading">
+        <p class="overline">Carte interactive</p>
+        <h2>Tracé global et zoom par étape</h2>
+      </div>
+      <div class="map-toolbar" id="mapStageButtons"></div>
+      <div class="map-wrap">
+        <div id="map" class="map" role="img" aria-label="Carte du Tour du Mont Blanc"></div>
+        <canvas id="mapFallback" class="map-fallback" hidden></canvas>
+        <button id="mapFullscreenBtn" class="map-fullscreen-btn" aria-label="Plein écran">⛶</button>
+      </div>
+      <p class="muted small">En absence de réseau, la carte de fond peut ne pas se charger. Le tracé et les fiches d’étapes restent disponibles.</p>
+    </section>
+
+    <section class="tab-panel" data-panel="stages">
+      <div class="section-heading">
+        <p class="overline">Fiches détaillées</p>
+        <h2>Les 9 étapes</h2>
+      </div>
+      <div class="filters" role="group" aria-label="Filtres des étapes">
+        <button class="chip is-active" data-filter="all">Toutes</button>
+        <button class="chip" data-filter="confirmed">Réservées</button>
+        <button class="chip" data-filter="bivouac">Bivouac</button>
+        <button class="chip" data-filter="missing">À régler</button>
+      </div>
+      <div class="stages-grid" id="stageCards"></div>
+    </section>
+
+    <section class="tab-panel" data-panel="budget">
+      <div class="section-heading">
+        <p class="overline">Budget</p>
+        <h2>Hébergements connus et reste à confirmer</h2>
+      </div>
+      <div id="budgetView"></div>
+    </section>
+
+    <section class="tab-panel" data-panel="checklist">
+      <div class="section-heading">
+        <p class="overline">Checklist collective</p>
+        <h2>À cocher avant et pendant le TMB</h2>
+      </div>
+      <div class="check-actions">
+        <button class="btn" id="resetChecklist">Réinitialiser</button>
+        <button class="btn" id="exportChecklist">Copier le bilan</button>
+      </div>
+      <div class="checklist-grid" id="checklistGrid"></div>
+      <textarea id="groupNotes" class="notes" rows="5" placeholder="Notes du groupe : ravitaillement, météo, numéros utiles…"></textarea>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="data.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

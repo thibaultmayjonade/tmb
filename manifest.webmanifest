@@ -1,0 +1,16 @@
+{
+  "name": "TMB Golgothes 2026",
+  "short_name": "TMB 2026",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f1e9",
+  "theme_color": "#17201d",
+  "description": "Carnet mobile du Tour du Mont Blanc Golgothes 2026",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
