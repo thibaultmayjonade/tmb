@@ -41,6 +41,7 @@
     <button class="nav-pill" data-tab="stages">Étapes</button>
     <button class="nav-pill" data-tab="budget">Budget</button>
     <button class="nav-pill" data-tab="checklist">Checklist</button>
+    <button class="nav-pill" data-tab="sac">Sac</button>
   </nav>
 
   <main id="content" class="shell">
@@ -142,6 +143,61 @@
       </div>
       <div class="checklist-grid" id="checklistGrid"></div>
       <textarea id="groupNotes" class="notes" rows="5" placeholder="Notes du groupe : ravitaillement, météo, numéros utiles…"></textarea>
+    </section>
+
+    <section class="tab-panel" data-panel="sac">
+      <div class="section-heading">
+        <p class="overline">Rangement du sac</p>
+        <h2>Millet Khumbu 65+10 — où est quoi</h2>
+      </div>
+      <div class="sac-subtabs" role="tablist">
+        <button class="subtab is-active" data-subtab="sac-visuel" role="tab" aria-selected="true">Schéma du sac</button>
+        <button class="subtab" data-subtab="sac-liste" role="tab" aria-selected="false">Liste rapide</button>
+      </div>
+
+      <!-- SOUS-VUE : schéma 10 poches -->
+      <div class="sac-subview is-active" data-subview="sac-visuel">
+        <div class="load-panel" id="sacLoad"></div>
+        <div class="sac-layout">
+          <div>
+            <div class="sac-packwrap" id="sacPackwrap"></div>
+            <p class="muted small">Touche une poche pour voir son rôle, son contenu et des conseils. Survole une catégorie pour repérer les poches concernées.</p>
+          </div>
+          <div id="sacPanel"></div>
+        </div>
+        <div class="sac-foot">
+          <span id="sacTot" class="muted small"></span>
+          <button class="btn" id="sacReset">Vider le sac</button>
+        </div>
+      </div>
+
+      <!-- SOUS-VUE : liste rapide -->
+      <div class="sac-subview" data-subview="sac-liste">
+        <div class="sac-search">
+          <input id="sacQ" type="search" placeholder="Chercher un objet — « frontale », « gaz », « chaussettes »…" autocomplete="off">
+          <button class="btn" id="sacClr" hidden>Effacer</button>
+        </div>
+        <div class="sac-layout">
+          <div>
+            <div class="sac-packwrap" id="listPackwrap"></div>
+            <div class="sac-chips" id="listChips"></div>
+          </div>
+          <div>
+            <div class="sac-addform">
+              <input id="listNm" placeholder="Nom de l'objet" autocomplete="off">
+              <select id="listZn" aria-label="Zone"></select>
+              <input id="listWt" type="number" step="10" min="0" placeholder="g" aria-label="Poids">
+              <button class="btn btn-primary" id="listAdd">Ranger</button>
+            </div>
+            <h3 id="listTitle" class="sac-h3">Contenu du sac</h3>
+            <div id="listItems"></div>
+            <div class="sac-foot">
+              <span id="listTot" class="muted small"></span>
+              <button class="btn" id="listReset">Vider la liste</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 

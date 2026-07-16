@@ -488,6 +488,7 @@ Hébergement : ${s.lodging}`;
         setTimeout(()=>$all('[data-card-profile]').forEach(c=>drawProfile(c, stages[Number(c.dataset.cardProfile)], 1)), 400);
       });
     }
+    if(name==='sac'){ renderSac(); }
     window.scrollTo({top:document.querySelector('.app-nav').offsetTop,behavior:'smooth'});
   }
   function bindEvents(){
@@ -641,9 +642,407 @@ Hébergement : ${s.lodging}`;
     }
   }
   // ────────────────────────────────────────────────────────────────────────
+
+  /* ═══════════════════════════════════════════════════════════════
+     ONGLET SAC (Khumbu 65+10) — intégré au thème du site
+     Persistance via localGet/localSet (localStorage)
+     ═══════════════════════════════════════════════════════════════ */
+  const SAC_CATALOGUE = {
+    "Couchage & nuit":[
+      {n:"Sac de couchage",g:900,ideal:["bottom"],lourd:true},{n:"Sac à viande / drap sac",g:200,ideal:["bottom"]},
+      {n:"Matelas gonflable",g:500,ideal:["bottom"]},{n:"Oreiller gonflable",g:80,ideal:["bottom"]},
+      {n:"Bouchons d'oreilles",g:5,ideal:["lid_top"]},{n:"Masque de nuit",g:30,ideal:["bottom"]},
+      {n:"Tongs / claquettes refuge",g:250,ideal:["bottom","straps"]},{n:"Vêtements de nuit",g:300,ideal:["bottom"]}],
+    "Abri & tente":[
+      {n:"Tente (toile)",g:1200,ideal:["main"],lourd:true},{n:"Arceaux de tente",g:500,ideal:["straps","main"],lourd:true},
+      {n:"Sardines + haubans",g:200,ideal:["main"]},{n:"Tapis de sol / footprint",g:300,ideal:["bottom","straps"]}],
+    "Cuisine & eau":[
+      {n:"Réchaud",g:90,ideal:["main"]},{n:"Cartouche de gaz",g:200,ideal:["main"],lourd:true,sep_food:true},
+      {n:"Popote / casserole",g:250,ideal:["main"]},{n:"Briquet / allumettes",g:20,ideal:["lid_top"]},
+      {n:"Couteau / Opinel",g:60,ideal:["lid_top"]},{n:"Spork / couverts",g:20,ideal:["main"]},
+      {n:"Éponge + savon bio",g:30,ideal:["main"]},{n:"Mug / gobelet",g:80,ideal:["main"]},
+      {n:"Poche à eau 2 L (pleine)",g:2000,ideal:["hydration"],lourd:true},{n:"Gourde 1 L (pleine)",g:1000,ideal:["mesh_left","mesh_right"],lourd:true},
+      {n:"Pastilles / filtre à eau",g:60,ideal:["lid_top"]},{n:"Électrolytes / iso",g:100,ideal:["lid_top"]}],
+    "Vêtements":[
+      {n:"T-shirt technique",g:150,ideal:["main"]},{n:"Sous-couche manches longues",g:200,ideal:["main"]},
+      {n:"Short / pantalon de rando",g:300,ideal:["main"]},{n:"Sous-vêtements",g:150,ideal:["main"]},
+      {n:"Chaussettes de rando",g:80,ideal:["main"]},{n:"Polaire / midlayer",g:350,ideal:["main"]},
+      {n:"Doudoune compressible",g:350,ideal:["main"]},{n:"Veste imperméable",g:350,ideal:["front"]},
+      {n:"Surpantalon imperméable",g:250,ideal:["front"]},{n:"Gants",g:60,ideal:["lid_top","front"]},
+      {n:"Bonnet / tour de cou",g:60,ideal:["lid_top","front"]},{n:"Casquette / chapeau",g:70,ideal:["lid_top","front"]},
+      {n:"Lunettes de soleil",g:30,ideal:["lid_top"]}],
+    "Alimentation":[
+      {n:"Barres énergétiques",g:200,ideal:["lid_top","hipbelt"]},{n:"Fruits secs / oléagineux",g:200,ideal:["lid_top"]},
+      {n:"Repas lyophilisé",g:150,ideal:["main"]},{n:"En-cas salés",g:150,ideal:["lid_top"]},
+      {n:"Café / thé",g:50,ideal:["main"]},{n:"Pique-nique du midi",g:400,ideal:["lid_top","front"]}],
+    "Hygiène & toilette":[
+      {n:"Brosse à dents + dentifrice",g:50,ideal:["main"]},{n:"Savon biodégradable",g:60,ideal:["main"]},
+      {n:"Papier toilette",g:60,ideal:["lid_top"]},{n:"Gel hydroalcoolique",g:60,ideal:["lid_top"]},
+      {n:"Crème solaire",g:100,ideal:["lid_top"]},{n:"Stick lèvres",g:15,ideal:["lid_top","hipbelt"]},
+      {n:"Serviette microfibre",g:120,ideal:["bottom","main"]},{n:"Mouchoirs",g:30,ideal:["lid_top"]}],
+    "Pharmacie & sécurité":[
+      {n:"Pansements ampoules",g:40,ideal:["lid_top"]},{n:"Strapping / élasto",g:60,ideal:["lid_top"]},
+      {n:"Antalgiques / anti-inflam.",g:40,ideal:["lid_under"]},{n:"Désinfectant",g:40,ideal:["lid_top"]},
+      {n:"Couverture de survie",g:60,ideal:["lid_top"]},{n:"Sifflet",g:10,ideal:["lid_top","hipbelt"]},
+      {n:"Pince à tiques",g:10,ideal:["lid_top"]},{n:"Crème anti-frottement",g:50,ideal:["lid_top"]},
+      {n:"Traitement personnel",g:50,ideal:["lid_under"]}],
+    "Papiers & navigation":[
+      {n:"Carte IGN / topoguide",g:150,ideal:["lid_top","front"]},{n:"Boussole",g:40,ideal:["lid_top"]},
+      {n:"Papiers d'identité",g:30,ideal:["lid_under"]},{n:"CB / carte d'assurance",g:20,ideal:["lid_under"]},
+      {n:"Cash EUR + CHF",g:40,ideal:["lid_under"]},{n:"Réservations refuges",g:20,ideal:["lid_under"]},
+      {n:"Montre GPS",g:60,ideal:["lid_top"]}],
+    "Électronique":[
+      {n:"Téléphone",g:200,ideal:["lid_under","lid_top"]},{n:"Batterie externe",g:250,ideal:["lid_under","main"],lourd:true},
+      {n:"Câbles de charge",g:60,ideal:["lid_top"]},{n:"Frontale + piles",g:90,ideal:["lid_top"]},
+      {n:"Écouteurs",g:30,ideal:["lid_top"]},{n:"Adaptateur suisse",g:40,ideal:["main"]},
+      {n:"Appareil photo",g:400,ideal:["lid_top","front"],lourd:true}],
+    "Portage & accessoires":[
+      {n:"Bâtons de marche",g:500,ideal:["straps"]},{n:"Housse de pluie du sac",g:120,ideal:["front"]},
+      {n:"Sacs étanches",g:80,ideal:["main"]},{n:"Cordelette / paracorde",g:40,ideal:["lid_top"]},
+      {n:"Mousquetons",g:40,ideal:["straps"]},{n:"Épingles à nourrice",g:5,ideal:["lid_top"]}],
+  };
+  const SAC_META = {};
+  for(const [cat,arr] of Object.entries(SAC_CATALOGUE)) for(const o of arr) SAC_META[o.n]={...o,cat};
+
+  const POCKETS = [
+    {id:'lid_top',name:'Poche supérieure du rabat',role:'Petit, accès en marche.',vpos:'haut',side:'centre'},
+    {id:'lid_under',name:'Poche intérieure du rabat',role:'Sécurité, contre la tête.',vpos:'haut',side:'centre'},
+    {id:'main',name:'Compartiment principal',role:'Gros volume, chargement par le haut.',vpos:'haut',side:'centre'},
+    {id:'hydration',name:'Poche à eau interne',role:'Manchon 2 L contre le dos.',vpos:'haut',side:'centre'},
+    {id:'front',name:'Grande poche frontale',role:'Poche plate, accès rapide.',vpos:'haut',side:'centre'},
+    {id:'bottom',name:'Compartiment bas zippé',role:'Accès séparé par le bas.',vpos:'bas',side:'centre'},
+    {id:'mesh_left',name:'Filet latéral gauche',role:'À portée de main.',vpos:'bas',side:'gauche'},
+    {id:'mesh_right',name:'Filet latéral droit',role:'À portée de main.',vpos:'bas',side:'droite'},
+    {id:'straps',name:'Compression + porte-bâtons',role:'Externe, sanglé.',vpos:'bas',side:'centre'},
+    {id:'hipbelt',name:'Ceinture lombaire',role:'Poches de ceinture, si équipée.',vpos:'bas',side:'centre'},
+  ];
+  const PMAP = Object.fromEntries(POCKETS.map(p=>[p.id,p]));
+  const escSac = s => (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const normSac = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
+  let sacPack = [];      // [{id,name,pocket,g}]
+  let sacSel = null;
+  let sacAddOpen = false;
+  let sacHoverCat = null;
+  let sacInited = false;
+
+  // Liste rapide (sous-onglet)
+  const LIST_ZONES = POCKETS.map(p=>({id:p.id,label:p.name}));
+  let sacListItems = [];  // [{id,name,zone,g}]
+  let sacListFilter = null;
+  let sacListQuery = '';
+
+  function loadSacData(){
+    try{ sacPack = JSON.parse(localGet('tmb-sac-pack','[]')); }catch(e){ sacPack=[]; }
+    try{ sacListItems = JSON.parse(localGet('tmb-sac-list','[]')); }catch(e){ sacListItems=[]; }
+  }
+  function saveSacPack(){ localSet('tmb-sac-pack', JSON.stringify(sacPack)); }
+  function saveSacList(){ localSet('tmb-sac-list', JSON.stringify(sacListItems)); }
+
+  /* ── SVG du sac 10 poches (classes .szone, thème-aware) ── */
+  function sacSVG(counts){
+    const c = id => { const n = counts[id]||0; return n?n:'—'; };
+    return `
+    <svg viewBox="0 0 260 430" role="img" aria-label="Schéma du sac à 10 poches">
+      <ellipse cx="130" cy="416" rx="86" ry="10" fill="#000" opacity=".14"/>
+      <path d="M40 60 C24 150,24 300,40 392 L30 392 C12 300,12 150,30 54 Z" fill="var(--glacier)" opacity=".14"/>
+      <text x="24" y="230" class="zcount" transform="rotate(-90 24 230)" text-anchor="middle" opacity=".5">CONTRE LE DOS</text>
+      <rect x="44" y="66" width="172" height="330" rx="16" class="sac-body-fill" stroke="var(--border)" stroke-width="1.6"/>
+      <path d="M60 66 Q70 50 84 54 Q98 44 112 52 Q130 44 148 52 Q164 46 176 54 Q192 50 200 66 Z" fill="var(--surface-soft)" stroke="var(--border)" stroke-width="1"/>
+
+      <g class="szone" data-p="hydration" tabindex="0" role="button" aria-label="Poche à eau interne">
+        <rect class="zfill" x="50" y="92" width="14" height="150" rx="5" fill="var(--glacier)" opacity=".3"/>
+        <rect class="zstroke" x="50" y="92" width="14" height="150" rx="5"/>
+        <text x="57" y="170" class="zcount" text-anchor="middle" transform="rotate(-90 57 170)">${c('hydration')}</text>
+        <g class="sblaze" transform="translate(50,246)"><rect width="9" height="14" fill="#fff"/><rect width="9" height="4" fill="#d63b2c"/><rect y="10" width="9" height="4" fill="#d63b2c"/></g>
+      </g>
+      <g class="szone" data-p="main" tabindex="0" role="button" aria-label="Compartiment principal">
+        <rect class="zfill" x="68" y="92" width="140" height="150" rx="6" fill="var(--glacier)" opacity=".13"/>
+        <rect class="zstroke" x="68" y="92" width="140" height="150" rx="6"/>
+        <text x="138" y="158" class="zlabel" text-anchor="middle">Compartiment principal</text>
+        <text x="138" y="170" class="zlabel" text-anchor="middle" style="font-size:6px">chargement par le haut</text>
+        <text x="138" y="186" class="zcount" text-anchor="middle">${c('main')}</text>
+        <g class="sblaze" transform="translate(196,98)"><rect width="9" height="14" fill="#fff"/><rect width="9" height="4" fill="#d63b2c"/><rect y="10" width="9" height="4" fill="#d63b2c"/></g>
+      </g>
+      <line x1="47" y1="286" x2="213" y2="286" stroke="var(--border)" stroke-width="1.6" stroke-dasharray="3 3"/>
+      <g class="szone" data-p="bottom" tabindex="0" role="button" aria-label="Compartiment bas zippé">
+        <rect class="zfill" x="50" y="290" width="156" height="100" rx="7" fill="var(--pine)" opacity=".2"/>
+        <rect class="zstroke" x="50" y="290" width="156" height="100" rx="7"/>
+        <text x="128" y="330" class="zlabel" text-anchor="middle">Compartiment bas</text>
+        <text x="128" y="341" class="zlabel" text-anchor="middle" style="font-size:6px">duvet · matelas · nuit</text>
+        <text x="128" y="357" class="zcount" text-anchor="middle">${c('bottom')}</text>
+        <g class="sblaze" transform="translate(194,296)"><rect width="9" height="14" fill="#fff"/><rect width="9" height="4" fill="#d63b2c"/><rect y="10" width="9" height="4" fill="#d63b2c"/></g>
+      </g>
+      <path d="M52 288 L204 288" stroke="var(--ink)" stroke-width="2.2" opacity=".5"/>
+      <circle cx="128" cy="288" r="3.4" fill="var(--glacier)"/>
+      <g class="szone" data-p="front" tabindex="0" role="button" aria-label="Grande poche frontale">
+        <path class="zfill" d="M74 210 Q74 204 80 204 L196 204 Q202 204 202 210 L202 300 Q202 306 196 306 L80 306 Q74 306 74 300 Z" fill="var(--gold)" opacity=".18"/>
+        <path class="zstroke" d="M74 210 Q74 204 80 204 L196 204 Q202 204 202 210 L202 300 Q202 306 196 306 L80 306 Q74 306 74 300 Z"/>
+        <text x="138" y="258" class="zlabel" text-anchor="middle">Poche frontale</text>
+        <text x="138" y="269" class="zlabel" text-anchor="middle" style="font-size:6px">accès rapide · imper</text>
+        <text x="138" y="285" class="zcount" text-anchor="middle">${c('front')}</text>
+        <g class="sblaze" transform="translate(188,210)"><rect width="9" height="14" fill="#fff"/><rect width="9" height="4" fill="#d63b2c"/><rect y="10" width="9" height="4" fill="#d63b2c"/></g>
+      </g>
+      <g class="szone" data-p="lid_top" tabindex="0" role="button" aria-label="Poche supérieure du rabat">
+        <path class="zfill" d="M52 60 Q52 30 84 26 L172 26 Q204 30 204 60 L204 74 L52 74 Z" fill="var(--rust)" opacity=".26"/>
+        <path class="zstroke" d="M52 60 Q52 30 84 26 L172 26 Q204 30 204 60 L204 74 L52 74 Z"/>
+        <text x="128" y="46" class="zlabel" text-anchor="middle">Poche du rabat</text>
+        <text x="128" y="57" class="zlabel" text-anchor="middle" style="font-size:6px">dessus · accès marche</text>
+        <text x="128" y="68" class="zcount" text-anchor="middle">${c('lid_top')}</text>
+        <g class="sblaze" transform="translate(190,30)"><rect width="9" height="14" fill="#fff"/><rect width="9" height="4" fill="#d63b2c"/><rect y="10" width="9" height="4" fill="#d63b2c"/></g>
+      </g>
+      <path d="M62 70 Q128 62 194 70" stroke="var(--ink)" stroke-width="2" fill="none" opacity=".5"/>
+      <g class="szone" data-p="lid_under" tabindex="0" role="button" aria-label="Poche intérieure du rabat">
+        <rect class="zfill" x="92" y="78" width="72" height="16" rx="4" fill="var(--glacier)" opacity=".24"/>
+        <rect class="zstroke" x="92" y="78" width="72" height="16" rx="4"/>
+        <text x="128" y="89" class="zcount" text-anchor="middle">${c('lid_under')}</text>
+        <g class="sblaze" transform="translate(150,79)"><rect width="8" height="13" fill="#fff"/><rect width="8" height="3.5" fill="#d63b2c"/><rect y="9.5" width="8" height="3.5" fill="#d63b2c"/></g>
+      </g>
+      <text x="128" y="102" class="zcount" text-anchor="middle" opacity=".45" style="font-size:6.5px">POCHE SÉCURITÉ (SOUS LE RABAT)</text>
+      <g class="szone" data-p="mesh_left" tabindex="0" role="button" aria-label="Filet latéral gauche">
+        <path class="zfill" d="M30 250 Q22 250 22 262 L22 330 Q22 344 34 346 L44 348 L44 250 Z" fill="var(--glacier)" opacity=".22"/>
+        <path class="zstroke" d="M30 250 Q22 250 22 262 L22 330 Q22 344 34 346 L44 348 L44 250 Z"/>
+        <text x="33" y="300" class="zcount" text-anchor="middle" transform="rotate(-90 33 300)">${c('mesh_left')}</text>
+        <g class="sblaze" transform="translate(24,254)"><rect width="8" height="12" fill="#fff"/><rect width="8" height="3.2" fill="#d63b2c"/><rect y="8.8" width="8" height="3.2" fill="#d63b2c"/></g>
+      </g>
+      <g class="szone" data-p="mesh_right" tabindex="0" role="button" aria-label="Filet latéral droit">
+        <path class="zfill" d="M230 250 Q238 250 238 262 L238 330 Q238 344 226 346 L216 348 L216 250 Z" fill="var(--glacier)" opacity=".22"/>
+        <path class="zstroke" d="M230 250 Q238 250 238 262 L238 330 Q238 344 226 346 L216 348 L216 250 Z"/>
+        <text x="227" y="300" class="zcount" text-anchor="middle" transform="rotate(90 227 300)">${c('mesh_right')}</text>
+        <g class="sblaze" transform="translate(228,254)"><rect width="8" height="12" fill="#fff"/><rect width="8" height="3.2" fill="#d63b2c"/><rect y="8.8" width="8" height="3.2" fill="#d63b2c"/></g>
+      </g>
+      <g class="szone" data-p="straps" tabindex="0" role="button" aria-label="Sangles de compression et porte-bâtons">
+        <rect class="zfill" x="70" y="112" width="136" height="9" fill="var(--rust)" opacity=".16"/>
+        <rect class="zfill" x="70" y="168" width="136" height="9" fill="var(--rust)" opacity=".16"/>
+        <rect class="zstroke" x="66" y="108" width="144" height="76" rx="4"/>
+        <g class="sblaze" transform="translate(70,150)"><rect width="8" height="12" fill="#fff"/><rect width="8" height="3.2" fill="#d63b2c"/><rect y="8.8" width="8" height="3.2" fill="#d63b2c"/></g>
+      </g>
+      <rect x="66" y="114" width="144" height="4" rx="2" fill="var(--ink)" opacity=".4"/>
+      <rect x="66" y="170" width="144" height="4" rx="2" fill="var(--ink)" opacity=".4"/>
+      <text x="138" y="200" class="zcount" text-anchor="middle" opacity=".5" style="font-size:6.5px">SANGLES · PORTE-BÂTONS · ${c('straps')}</text>
+      <g class="szone" data-p="hipbelt" tabindex="0" role="button" aria-label="Ceinture lombaire">
+        <path class="zfill" d="M40 372 Q30 372 26 384 L20 402 L70 402 L74 372 Z" fill="var(--gold)" opacity=".24"/>
+        <path class="zfill" d="M220 372 Q230 372 234 384 L240 402 L190 402 L186 372 Z" fill="var(--gold)" opacity=".24"/>
+        <path class="zstroke" d="M40 372 Q30 372 26 384 L20 402 L70 402 L74 372 Z"/>
+        <path class="zstroke" d="M220 372 Q230 372 234 384 L240 402 L190 402 L186 372 Z"/>
+        <text x="45" y="392" class="zcount" text-anchor="middle">${c('hipbelt')}</text>
+        <g class="sblaze" transform="translate(24,382)"><rect width="8" height="12" fill="#fff"/><rect width="8" height="3.2" fill="#d63b2c"/><rect y="8.8" width="8" height="3.2" fill="#d63b2c"/></g>
+      </g>
+      <text x="128" y="392" class="zlabel" text-anchor="middle" opacity=".7">Ceinture</text>
+      <text x="138" y="230" text-anchor="middle" style="font-family:Georgia,serif;font-size:11px;letter-spacing:.12em;fill:var(--glacier);opacity:.6;font-weight:700">KHUMBU 65+10</text>
+    </svg>`;
+  }
+
+  function sacTips(pid){
+    const here = sacPack.filter(i=>i.pocket===pid);
+    const meta = i => SAC_META[i.name]||{};
+    const tips=[]; const add=(t,a=false)=>tips.push({t,a});
+    if(pid==='main'){
+      add('Le lourd contre le dos, à mi-hauteur — c\'est le cœur de l\'équilibre.');
+      add('Idéal ici : nourriture, réchaud, popote, toile de tente.');
+      if(here.some(i=>meta(i).sep_food) && here.some(i=>meta(i).cat==='Alimentation'))
+        add('Cartouche de gaz ET nourriture dans la même poche : sépare le gaz des aliments (goût, sécurité).',true);
+    } else if(pid==='lid_top'){
+      add('Poche en marche : petits objets à accès fréquent uniquement.');
+      const h=here.filter(i=>meta(i).lourd);
+      if(h.length) add(`${h.map(i=>i.name).join(', ')} : trop lourd ici, ça remonte le centre de gravité → descends-le dans le compartiment principal.`,true);
+    } else if(pid==='lid_under'){
+      add('Poche sécurité, contre la tête : regroupe papiers, cash, cartes, réservations.');
+      const pe=sacPack.filter(i=>meta(i).cat==='Papiers & navigation' && i.pocket!=='lid_under' && (SAC_META[i.name]?.ideal||[]).includes('lid_under'));
+      if(pe.length) add(`Des papiers sont ailleurs (${pe.map(i=>i.name).join(', ')}) : regroupe-les ici.`);
+    } else if(pid==='front'){
+      add('Couche imperméable ici : veste + surpantalon + housse de pluie, accessibles aux cols.');
+      add('Garde le mouillé loin du sec — cette poche plate isole bien.');
+    } else if(pid==='bottom'){
+      add('Volumineux et léger : sac de couchage, matelas, affaires de nuit.');
+      const h=here.filter(i=>meta(i).lourd);
+      if(h.length) add(`${h.map(i=>i.name).join(', ')} en bas : ça déséquilibre vers le bas → remonte-le dans le compartiment principal.`,true);
+    } else if(pid==='hydration'){
+      add('2 L d\'eau = 2 kg parfaitement placés, plaqués contre le dos et centrés.');
+      add('Passe le tuyau par-dessus l\'épaule avant de fermer.');
+    } else if(pid==='mesh_left'||pid==='mesh_right'){
+      add('À portée de main sans enlever le sac : gourde, en-cas.');
+      const wl=sacPack.filter(i=>i.pocket==='mesh_left').reduce((s,i)=>s+(+i.g||0),0);
+      const wr=sacPack.filter(i=>i.pocket==='mesh_right').reduce((s,i)=>s+(+i.g||0),0);
+      if(Math.abs(wl-wr)>300) add(`Déséquilibre gauche/droite : ${(wl/1000).toFixed(1)} kg vs ${(wr/1000).toFixed(1)} kg. Mets une gourde de chaque côté.`,true);
+      else add('Équilibre gauche/droite correct.');
+    } else if(pid==='straps'){
+      add('Bâtons de marche + tapis de sol sur les sangles de compression.');
+      add('Rien qui pende : ça s\'accroche dans les passages câblés et les échelles.');
+    } else if(pid==='hipbelt'){
+      add('Petits objets d\'accès immédiat : barres, stick à lèvres, sifflet.');
+      if(!here.length) add('Si ta ceinture n\'a pas de poches, serre-la en premier : elle porte 80 % de la charge.');
+    }
+    return tips.slice(0,4);
+  }
+
+  function renderSacLoad(){
+    const tot=sacPack.reduce((s,i)=>s+(+i.g||0),0), kg=tot/1000;
+    const unw=sacPack.filter(i=>!i.g).length;
+    let cls='',msg='',mc='';
+    if(kg>15){cls='over';msg='Reprends la liste, enlève quelque chose. Au-dessus de 15 kg, chaque montée se paie.';mc='over';}
+    else if(kg>=12&&kg<=14){msg='Fenêtre idéale : 12–14 kg. Le sac est réglé pour le TMB.';mc='ok';}
+    else if(kg>14&&kg<=15){cls='warn';msg='Encore acceptable, mais tu frôles la limite haute.';mc='ok';}
+    let up=0,dn=0,lf=0,rt=0;
+    for(const i of sacPack){const p=PMAP[i.pocket];if(!p)continue;const g=+i.g||0;
+      if(p.vpos==='haut')up+=g;else dn+=g; if(p.side==='gauche')lf+=g;else if(p.side==='droite')rt+=g;}
+    const ud=up+dn||1, lr=lf+rt||1, pct=(a,t)=>Math.round(a/t*100);
+    $('#sacLoad').innerHTML=`
+      <div class="load-top"><div class="load-kg ${cls}">${kg.toFixed(2)}<small>kg</small></div>
+      <div class="load-goal">objectif<br><b>12–14 kg</b></div></div>
+      ${msg?`<div class="load-msg ${mc}">${msg}</div>`:''}
+      <div class="balances">
+        <div><div class="bal-head"><span>Haut ${(up/1000).toFixed(1)} kg</span><span>Bas ${(dn/1000).toFixed(1)} kg</span></div>
+        <div class="bal-bar"><span class="bal-a" style="width:${pct(up,ud)}%"></span><span class="bal-b" style="width:${pct(dn,ud)}%"></span></div></div>
+        <div><div class="bal-head"><span>Gauche ${(lf/1000).toFixed(1)} kg</span><span>Droite ${(rt/1000).toFixed(1)} kg</span></div>
+        <div class="bal-bar"><span class="bal-a" style="width:${pct(lf,lr)}%"></span><span class="bal-b" style="width:${pct(rt,lr)}%"></span></div></div>
+      </div>
+      ${unw?`<div class="load-unweighed"><b>${unw}</b> objet${unw>1?'s':''} sans poids saisi</div>`:''}`;
+  }
+
+  function renderSacCatalogue(){
+    const inP=new Set(sacPack.filter(i=>i.pocket===sacSel).map(i=>i.name));
+    const cats=Object.entries(SAC_CATALOGUE).map(([cat,arr])=>{
+      const opts=arr.map(o=>{
+        const ck=inP.has(o.n), isI=(o.ideal||[]).includes(sacSel);
+        const idn=(o.ideal||[]).map(z=>PMAP[z]?.name||z).join(', ');
+        return `<label class="opt ${ck?'here':''}"><input type="checkbox" data-opt="${escSac(o.n)}" ${ck?'checked':''}>
+          <span class="o-nm">${escSac(o.n)}${o.lourd?' <span class="opt-heavy">◆ lourd</span>':''}</span>
+          <span class="o-g">${o.g} g</span>
+          ${isI?'<span class="o-ideal">idéal ici</span>':`<span class="o-ideal" style="color:var(--text-soft);border-color:var(--border)" title="Idéal : ${escSac(idn)}">${escSac(PMAP[o.ideal[0]]?.name||'')}</span>`}</label>`;
+      }).join('');
+      const nH=arr.filter(o=>inP.has(o.n)).length;
+      return `<details class="cat" data-cat="${escSac(cat)}"><summary>${escSac(cat)} ${nH?`<span class="cat-count">${nH} ici</span>`:''}</summary><div class="cat-body">${opts}</div></details>`;
+    }).join('');
+    return `<div class="catalogue">${cats}</div>`;
+  }
+
+  function renderSacPanel(){
+    const panel=$('#sacPanel');
+    if(!sacSel){ panel.innerHTML=`<div class="pocket-none">Choisis une poche sur le schéma.<br><b>Chaque poche a un rôle</b> — l\'app te propose quoi y ranger et repère ce qui est mal placé.</div>`; return; }
+    const p=PMAP[sacSel], here=sacPack.filter(i=>i.pocket===sacSel), tips=sacTips(sacSel);
+    const tipsH=tips.map(t=>`<div class="tip ${t.a?'alert':''}"><span class="tip-ico">${t.a?'!':'›'}</span><span>${escSac(t.t)}</span></div>`).join('');
+    const itemsH=here.length?`<div class="pk-items">${here.map(i=>{
+      const m=SAC_META[i.name]||{}, mis=m.ideal&&!m.ideal.includes(sacSel);
+      const idn=(m.ideal||[]).map(z=>PMAP[z]?.name||z).join(', ');
+      return `<div class="pk-item"><span class="pk-nm">${escSac(i.name)}${m.lourd?'<span class="pk-heavy">lourd</span>':''}</span>
+        ${mis?`<button class="pk-advice" data-advise="${i.id}" title="Idéal : ${escSac(idn)}">→ ${escSac(PMAP[m.ideal[0]].name)}</button>`:''}
+        <input class="pk-wt" type="number" min="0" step="10" value="${i.g||0}" data-wt="${i.id}" aria-label="Poids"> <span style="font-family:ui-monospace,monospace;font-size:.65rem;color:var(--text-soft)">g</span>
+        <button class="pk-move" data-move="${i.id}" title="Déplacer">⇄</button>
+        <button class="pk-del" data-del="${i.id}" aria-label="Retirer">✕</button></div>`;
+    }).join('')}</div>`:`<div class="pocket-none" style="padding:18px">Cette poche est vide.</div>`;
+    panel.innerHTML=`<div class="pocket-head"><h3>${escSac(p.name)}</h3><span style="font-family:ui-monospace,monospace;font-size:.72rem;color:var(--gold)">${here.length} objet${here.length>1?'s':''}</span></div>
+      <p class="pocket-role">${escSac(p.role)}</p><div class="tips">${tipsH}</div>${itemsH}
+      <button class="btn addbtn ${sacAddOpen?'':'btn-primary'}" id="sacToggleAdd">${sacAddOpen?'Fermer le catalogue':'Ajouter des objets'}</button>
+      ${sacAddOpen?renderSacCatalogue():''}`;
+  }
+
+  function sacCounts(){ const c={}; for(const i of sacPack) c[i.pocket]=(c[i.pocket]||0)+1; return c; }
+  function applySacHighlight(){
+    let hit=new Set();
+    if(sacHoverCat&&SAC_CATALOGUE[sacHoverCat]){ const names=new Set(SAC_CATALOGUE[sacHoverCat].map(o=>o.n)); hit=new Set(sacPack.filter(i=>names.has(i.name)).map(i=>i.pocket)); }
+    $all('#sacPackwrap .szone').forEach(g=>g.classList.toggle('hit',hit.has(g.dataset.p)));
+  }
+  function renderSacVisuel(){
+    $('#sacPackwrap').innerHTML=sacSVG(sacCounts());
+    $all('#sacPackwrap .szone').forEach(g=>g.classList.toggle('sel',sacSel===g.dataset.p));
+    applySacHighlight(); renderSacLoad(); renderSacPanel();
+    const tot=sacPack.reduce((s,i)=>s+(+i.g||0),0);
+    $('#sacTot').textContent=sacPack.length?`${sacPack.length} objet${sacPack.length>1?'s':''} rangé${sacPack.length>1?'s':''} · ${(tot/1000).toFixed(2)} kg`:'Sac vide';
+  }
+
+  /* ── Sous-onglet Liste rapide ── */
+  function sacListMatches(it){ if(!sacListQuery) return false; const q=normSac(sacListQuery);
+    return normSac(it.name).includes(q)||normSac(PMAP[it.zone]?.name||'').includes(q); }
+  function renderSacList(){
+    const counts={}; for(const i of sacListItems) counts[i.zone]=(counts[i.zone]||0)+1;
+    $('#listPackwrap').innerHTML=sacSVG(counts);
+    const hit=new Set(sacListItems.filter(sacListMatches).map(i=>i.zone));
+    $all('#listPackwrap .szone').forEach(g=>{ g.classList.toggle('hit',hit.has(g.dataset.p)); g.classList.toggle('sel',sacListFilter===g.dataset.p); });
+    $('#listChips').innerHTML=LIST_ZONES.map(z=>{ const n=sacListItems.filter(i=>i.zone===z.id).length;
+      return `<button class="sac-chip ${sacListFilter===z.id?'sel':''} ${hit.has(z.id)?'hit':''}" data-lz="${z.id}">${escSac(z.label)}${n?`<b>${n}</b>`:''}</button>`; }).join('');
+    let shown=sacListItems.slice().sort((a,b)=>a.name.localeCompare(b.name,'fr'));
+    if(sacListFilter) shown=shown.filter(i=>i.zone===sacListFilter);
+    if(sacListQuery) shown=shown.filter(sacListMatches);
+    $('#listTitle').textContent=sacListFilter?PMAP[sacListFilter].name:sacListQuery?`Résultats pour « ${sacListQuery} »`:'Contenu du sac';
+    if(!sacListItems.length) $('#listItems').innerHTML=`<div class="sac-empty">La liste est vide.<br><b>Commence par le lourd</b> — nourriture, réchaud, eau.</div>`;
+    else if(!shown.length) $('#listItems').innerHTML=`<div class="sac-empty">${sacListQuery?`Rien qui corresponde à « ${sacListQuery} ».`:'Cette zone est vide.'}</div>`;
+    else $('#listItems').innerHTML=shown.map(i=>`<div class="sac-litem ${sacListMatches(i)?'hit':''}"><span class="li-nm">${escSac(i.name)}</span><span class="li-zn">${escSac(PMAP[i.zone].name)}</span><span class="li-wt">${i.g?i.g+' g':''}</span><button class="li-del" data-ldel="${i.id}" aria-label="Retirer">✕</button></div>`).join('');
+    const tot=sacListItems.reduce((s,i)=>s+(+i.g||0),0), p=sacListItems.filter(i=>i.g).length;
+    $('#listTot').innerHTML=sacListItems.length?`${sacListItems.length} objet${sacListItems.length>1?'s':''} · ${(tot/1000).toFixed(2)} kg${p<sacListItems.length?` (${sacListItems.length-p} sans poids)`:''}`:'';
+    $('#sacClr').hidden=!sacListQuery;
+  }
+
+  function renderSac(){
+    if(!sacInited){
+      $('#listZn').innerHTML=LIST_ZONES.map(z=>`<option value="${z.id}">${escSac(z.label)}</option>`).join('');
+      sacInited=true;
+    }
+    renderSacVisuel(); renderSacList();
+  }
+
+  function bindSacEvents(){
+    // sous-onglets
+    document.addEventListener('click', e=>{
+      const st=e.target.closest('[data-subtab]'); if(!st) return;
+      const name=st.dataset.subtab;
+      $all('.subtab').forEach(b=>{ const on=b.dataset.subtab===name; b.classList.toggle('is-active',on); b.setAttribute('aria-selected',String(on)); });
+      $all('.sac-subview').forEach(v=>v.classList.toggle('is-active',v.dataset.subview===name));
+    });
+    // clic poche schéma (visuel)
+    document.addEventListener('click', e=>{
+      const z=e.target.closest('#sacPackwrap .szone'); if(!z) return;
+      sacSel=(sacSel===z.dataset.p)?null:z.dataset.p; sacAddOpen=false; renderSacVisuel();
+    });
+    document.addEventListener('keydown', e=>{
+      const z=e.target.closest('#sacPackwrap .szone'); if(z&&(e.key==='Enter'||e.key===' ')){ e.preventDefault(); sacSel=(sacSel===z.dataset.p)?null:z.dataset.p; sacAddOpen=false; renderSacVisuel(); }
+    });
+    // panneau poche : toggle add, del, advise, move
+    document.addEventListener('click', e=>{
+      if(!$('[data-panel="sac"]')?.classList.contains('is-active')) return;
+      if(e.target.closest('#sacToggleAdd')){ sacAddOpen=!sacAddOpen; renderSacPanel(); return; }
+      const del=e.target.closest('[data-del]'); if(del){ sacPack=sacPack.filter(i=>i.id!==del.dataset.del); saveSacPack(); renderSacVisuel(); return; }
+      const adv=e.target.closest('[data-advise]'); if(adv){ const it=sacPack.find(i=>i.id===adv.dataset.advise); if(it){const m=SAC_META[it.name]; if(m&&m.ideal){it.pocket=m.ideal[0]; saveSacPack(); sacSel=m.ideal[0]; renderSacVisuel();}} return; }
+      const mv=e.target.closest('[data-move]'); if(mv){ const it=sacPack.find(i=>i.id===mv.dataset.move); if(!it)return;
+        const opts=POCKETS.map((p,i)=>`${i+1}. ${p.name}`).join('\n');
+        const ans=prompt(`Déplacer « ${it.name} » vers quelle poche ?\n\n${opts}\n\nEntre un numéro (1–10) :`);
+        const idx=parseInt(ans,10); if(idx>=1&&idx<=POCKETS.length){ it.pocket=POCKETS[idx-1].id; saveSacPack(); renderSacVisuel(); } return; }
+    });
+    // cocher catalogue + éditer poids
+    document.addEventListener('change', e=>{
+      const cb=e.target.closest('[data-opt]');
+      if(cb&&sacSel){ const name=cb.dataset.opt;
+        if(cb.checked){ const m=SAC_META[name]; sacPack.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6),name,pocket:sacSel,g:m?m.g:0}); }
+        else{ const i=sacPack.findIndex(x=>x.name===name&&x.pocket===sacSel); if(i>=0) sacPack.splice(i,1); }
+        saveSacPack(); renderSacVisuel(); return; }
+      const wt=e.target.closest('[data-wt]');
+      if(wt){ const it=sacPack.find(i=>i.id===wt.dataset.wt); if(it){ it.g=+wt.value||0; saveSacPack(); renderSacLoad();
+        const tot=sacPack.reduce((s,i)=>s+(+i.g||0),0); $('#sacTot').textContent=`${sacPack.length} objet${sacPack.length>1?'s':''} rangé${sacPack.length>1?'s':''} · ${(tot/1000).toFixed(2)} kg`; } return; }
+    });
+    // survol catégories -> highlight balise GR
+    document.addEventListener('mouseover', e=>{ const c=e.target.closest('.cat'); if(c){ sacHoverCat=c.dataset.cat; applySacHighlight(); } });
+    document.addEventListener('mouseout', e=>{ const c=e.target.closest('.cat'); if(c&&!c.contains(e.relatedTarget)){ sacHoverCat=null; applySacHighlight(); } });
+    // reset pack
+    $('#sacReset').addEventListener('click',()=>{ if(!sacPack.length)return; if(confirm('Vider le sac ? Le contenu rangé par poche sera perdu.')){ sacPack=[]; sacSel=null; sacAddOpen=false; saveSacPack(); renderSacVisuel(); } });
+
+    // ── Liste rapide ──
+    $('#listAdd').addEventListener('click',()=>{ const name=$('#listNm').value.trim(); if(!name){$('#listNm').focus();return;}
+      sacListItems.push({id:'l'+Date.now(),name,zone:$('#listZn').value,g:+$('#listWt').value||0}); $('#listNm').value='';$('#listWt').value='';$('#listNm').focus(); saveSacList(); renderSacList(); });
+    $('#listNm').addEventListener('keydown',e=>{ if(e.key==='Enter')$('#listAdd').click(); });
+    $('#listWt').addEventListener('keydown',e=>{ if(e.key==='Enter')$('#listAdd').click(); });
+    $('#sacQ').addEventListener('input',e=>{ sacListQuery=e.target.value.trim(); renderSacList(); });
+    $('#sacClr').addEventListener('click',()=>{ sacListQuery=''; $('#sacQ').value=''; renderSacList(); });
+    document.addEventListener('click', e=>{
+      const li=e.target.closest('[data-ldel]'); if(li){ sacListItems=sacListItems.filter(i=>i.id!==li.dataset.ldel); saveSacList(); renderSacList(); return; }
+      const lz=e.target.closest('[data-lz]'); if(lz){ sacListFilter=(sacListFilter===lz.dataset.lz)?null:lz.dataset.lz; renderSacList(); return; }
+      const lzone=e.target.closest('#listPackwrap .szone'); if(lzone){ sacListFilter=(sacListFilter===lzone.dataset.p)?null:lzone.dataset.p; renderSacList(); return; }
+    });
+    $('#listReset').addEventListener('click',()=>{ if(!sacListItems.length)return; if(confirm('Vider la liste ?')){ sacListItems=[]; sacListFilter=null; saveSacList(); renderSacList(); } });
+  }
+
   function init(){
     initDarkMode(); renderHero(); renderDashboard();
-    fetchHeroWeather(); renderPrep(); renderTrekCard(); renderStages(); renderBudget(); renderChecklist(); renderMapButtons(); bindEvents();
+    fetchHeroWeather(); renderPrep(); renderTrekCard(); renderStages(); renderBudget(); renderChecklist(); renderMapButtons(); bindEvents(); loadSacData(); bindSacEvents();
     if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('service-worker.js').catch(()=>{});
   }
   init();
