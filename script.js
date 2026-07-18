@@ -991,18 +991,33 @@ Hébergement : ${s.lodging}`;
       const m=SAC_META[i.name]||{}, mis=m.ideal&&!m.ideal.includes(sacSel);
       const idn=(m.ideal||[]).map(z=>PMAP[z]?.name||z).join(', ');
       const q=i.q||1, lineW=(+i.g||0)*q;
-      return `<div class="pk-item"><span class="pk-nm">${escSac(i.name)}${q>1?`<span class="pk-qbadge">×${q}</span>`:''}${m.lourd?'<span class="pk-heavy">lourd</span>':''}</span>
-        ${mis?`<button class="pk-advice" data-advise="${i.id}" title="Idéal : ${escSac(idn)}">→ ${escSac(PMAP[m.ideal[0]].name)}</button>`:''}
-        <span class="pk-qstep"><button class="qbtn" data-pkminus="${i.id}" aria-label="Moins">−</button><span class="pk-q">${q}</span><button class="qbtn" data-pkplus="${i.id}" aria-label="Plus">+</button></span>
-        <input class="pk-wt" type="number" min="0" step="10" value="${i.g||0}" data-wt="${i.id}" aria-label="Poids unitaire" title="Poids unitaire (g)"> <span class="pk-linew" title="Poids total de la ligne">${lineW>=1000?(lineW/1000).toFixed(1)+'kg':lineW+'g'}</span>
-        <select class="pk-owner" data-owner="${i.id}" aria-label="Qui porte cet objet">
-          <option value="" ${!i.owner?'selected':''}>— porteur</option>
-          <option value="Thibault" ${i.owner==='Thibault'?'selected':''}>Thibault</option>
-          <option value="Thomas" ${i.owner==='Thomas'?'selected':''}>Thomas</option>
-          <option value="3e" ${i.owner==='3e'?'selected':''}>3e</option>
-        </select>
-        <button class="pk-move" data-move="${i.id}" title="Déplacer">⇄</button>
-        <button class="pk-del" data-del="${i.id}" aria-label="Retirer">✕</button></div>`;
+      return `<div class="pk-item">
+        <div class="pk-row1">
+          <span class="pk-nm">${escSac(i.name)}${m.lourd?'<span class="pk-heavy">lourd</span>':''}</span>
+          ${mis?`<button class="pk-advice" data-advise="${i.id}" title="Idéal : ${escSac(idn)}">→ ${escSac(PMAP[m.ideal[0]].name)}</button>`:''}
+          <button class="pk-del" data-del="${i.id}" aria-label="Retirer ${escSac(i.name)}" title="Retirer">✕</button>
+        </div>
+        <div class="pk-row2">
+          <label class="pk-field"><span class="pk-flabel">Qté</span>
+            <span class="pk-qstep"><button class="qbtn" data-pkminus="${i.id}" aria-label="Moins un">−</button><span class="pk-q">${q}</span><button class="qbtn" data-pkplus="${i.id}" aria-label="Plus un">+</button></span>
+          </label>
+          <label class="pk-field"><span class="pk-flabel">Poids unitaire</span>
+            <span class="pk-wtwrap"><input class="pk-wt" type="number" min="0" step="10" value="${i.g||0}" data-wt="${i.id}" aria-label="Poids unitaire en grammes"><span class="pk-wtunit">g</span></span>
+          </label>
+          <span class="pk-field pk-field--total"><span class="pk-flabel">Total</span>
+            <span class="pk-linew">${lineW>=1000?(lineW/1000).toFixed(2)+' kg':lineW+' g'}</span>
+          </span>
+          <label class="pk-field"><span class="pk-flabel">Porté par</span>
+            <select class="pk-owner" data-owner="${i.id}" aria-label="Qui porte cet objet">
+              <option value="" ${!i.owner?'selected':''}>—</option>
+              <option value="Thibault" ${i.owner==='Thibault'?'selected':''}>Thibault</option>
+              <option value="Thomas" ${i.owner==='Thomas'?'selected':''}>Thomas</option>
+              <option value="3e" ${i.owner==='3e'?'selected':''}>3e</option>
+            </select>
+          </label>
+          <button class="pk-move" data-move="${i.id}" title="Déplacer vers une autre poche">⇄ Déplacer</button>
+        </div>
+      </div>`;
     }).join('')}</div>`:`<div class="pocket-none" style="padding:18px">Cette poche est vide.</div>`;
     const hereQty=here.reduce((s,i)=>s+(i.q||1),0);
     panel.innerHTML=`<div class="pocket-head"><h3>${escSac(p.name)}</h3><span style="font-family:ui-monospace,monospace;font-size:.72rem;color:var(--gold)">${hereQty} objet${hereQty>1?'s':''}</span></div>

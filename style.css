@@ -695,11 +695,11 @@ html.dark .load-msg.ok{color:#7ecfa0}
 
 /* objets dans la poche */
 .pk-items{display:flex;flex-direction:column;gap:1px;background:var(--border);border-radius:10px;overflow:hidden;margin-top:6px}
-.pk-item{display:flex;align-items:center;gap:9px;padding:10px 12px;background:var(--surface);font-size:.85rem;flex-wrap:wrap}
+
 .pk-nm{flex:1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:120px;color:var(--text)}
 .pk-heavy{font-family:ui-monospace,monospace;font-size:.6rem;color:var(--gold);border:1px solid rgba(200,168,75,.4);border-radius:4px;padding:1px 5px;letter-spacing:.03em}
-.pk-wt{font-family:ui-monospace,monospace;font-size:.72rem;color:var(--gold);width:54px;text-align:right;background:none;border:1px solid transparent;padding:3px 4px;border-radius:5px}
-.pk-wt:focus{outline:none;border-color:var(--glacier)}
+
+
 .pk-advice{background:none;border:1px solid var(--rust);color:var(--rust);cursor:pointer;font-family:ui-monospace,monospace;font-size:.62rem;border-radius:5px;padding:3px 7px;white-space:nowrap}
 .pk-advice:hover{background:rgba(192,84,42,.1)}
 .pk-move{background:var(--surface-soft);border:1px solid var(--border);color:var(--text-soft);cursor:pointer;font-size:.75rem;border-radius:5px;padding:4px 7px}
@@ -817,3 +817,35 @@ html.dark .prep-done{color:#7ecfa0}
 .porteur-row.muted{color:var(--text-soft)}
 .pk-owner{font-family:inherit;font-size:.72rem;background:var(--surface-soft);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 5px;max-width:92px}
 .pk-owner:focus{outline:none;border-color:var(--glacier)}
+
+
+/* ── Ligne objet dans la poche : 2 niveaux, champs libellés ── */
+.pk-item{display:block;padding:12px 14px;background:var(--surface);font-size:.85rem}
+.pk-row1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.pk-row2{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.pk-nm{flex:1;min-width:120px;color:var(--text);font-weight:700}
+.pk-field{display:flex;flex-direction:column;gap:4px}
+.pk-flabel{font-family:ui-monospace,monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.09em;color:var(--text-soft);font-weight:900}
+.pk-field--total{align-items:flex-start}
+
+/* champ poids — visiblement éditable */
+.pk-wtwrap{display:inline-flex;align-items:center;background:var(--input-bg);border:1px solid var(--border);border-radius:8px;overflow:hidden;transition:border-color .15s}
+.pk-wtwrap:focus-within{border-color:var(--glacier);box-shadow:0 0 0 2px rgba(143,196,212,.2)}
+.pk-wt{font-family:ui-monospace,monospace;font-size:.85rem;font-weight:700;color:var(--gold);width:62px;text-align:right;background:none;border:0;padding:7px 4px 7px 8px;outline:none;-moz-appearance:textfield}
+.pk-wt::-webkit-outer-spin-button,.pk-wt::-webkit-inner-spin-button{opacity:1;height:22px}
+.pk-wtunit{font-family:ui-monospace,monospace;font-size:.7rem;color:var(--text-soft);padding:0 8px 0 2px}
+
+.pk-qstep{display:inline-flex;align-items:center;gap:1px;background:var(--surface-soft);border:1px solid var(--border);border-radius:8px;padding:2px}
+.pk-q{min-width:24px;text-align:center;font-family:ui-monospace,monospace;font-size:.85rem;font-weight:900;color:var(--text)}
+.pk-linew{font-family:ui-monospace,monospace;font-size:.9rem;font-weight:900;color:var(--text);padding:7px 0}
+.pk-owner{font-family:inherit;font-size:.78rem;background:var(--input-bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 8px;max-width:110px}
+.pk-owner:focus{outline:none;border-color:var(--glacier)}
+.pk-move{background:var(--surface-soft);border:1px solid var(--border);color:var(--text-soft);cursor:pointer;font-size:.75rem;font-weight:700;border-radius:8px;padding:8px 12px;align-self:flex-end}
+.pk-move:hover{color:var(--text);border-color:var(--text-soft)}
+.pk-del{background:none;border:0;color:var(--text-soft);cursor:pointer;font-size:1.05rem;padding:2px 6px;line-height:1;flex:0 0 auto;border-radius:6px}
+.pk-del:hover{color:var(--rust);background:rgba(192,84,42,.1)}
+@media(max-width:560px){
+  .pk-row2{gap:10px}
+  .pk-owner{max-width:96px}
+  .pk-move{width:100%;text-align:center;margin-top:4px}
+}
