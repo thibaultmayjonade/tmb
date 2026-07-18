@@ -862,8 +862,8 @@ Hébergement : ${s.lodging}`;
       add('Passe le tuyau par-dessus l\'épaule avant de fermer.');
     } else if(pid==='mesh_left'||pid==='mesh_right'){
       add('À portée de main sans enlever le sac : gourde, en-cas.');
-      const wl=sacPack.filter(i=>i.pocket==='mesh_left').reduce((s,i)=>s+(+i.g||0),0);
-      const wr=sacPack.filter(i=>i.pocket==='mesh_right').reduce((s,i)=>s+(+i.g||0),0);
+      const wl=sacPack.filter(i=>i.pocket==='mesh_left').reduce((s,i)=>s+(+i.g||0)*(i.q||1),0);
+      const wr=sacPack.filter(i=>i.pocket==='mesh_right').reduce((s,i)=>s+(+i.g||0)*(i.q||1),0);
       if(Math.abs(wl-wr)>300) add(`Déséquilibre gauche/droite : ${(wl/1000).toFixed(1)} kg vs ${(wr/1000).toFixed(1)} kg. Mets une gourde de chaque côté.`,true);
       else add('Équilibre gauche/droite correct.');
     } else if(pid==='straps'){
@@ -877,14 +877,14 @@ Hébergement : ${s.lodging}`;
   }
 
   function renderSacLoad(){
-    const tot=sacPack.reduce((s,i)=>s+(+i.g||0),0), kg=tot/1000;
-    const unw=sacPack.filter(i=>!i.g).length;
+    const tot=sacTotalWeight(), kg=tot/1000;
+    const unw=sacPack.filter(i=>!i.g).reduce((s,i)=>s+(i.q||1),0);
     let cls='',msg='',mc='';
     if(kg>15){cls='over';msg='Reprends la liste, enlève quelque chose. Au-dessus de 15 kg, chaque montée se paie.';mc='over';}
     else if(kg>=12&&kg<=14){msg='Fenêtre idéale : 12–14 kg. Le sac est réglé pour le TMB.';mc='ok';}
     else if(kg>14&&kg<=15){cls='warn';msg='Encore acceptable, mais tu frôles la limite haute.';mc='ok';}
     let up=0,dn=0,lf=0,rt=0;
-    for(const i of sacPack){const p=PMAP[i.pocket];if(!p)continue;const g=+i.g||0;
+    for(const i of sacPack){const p=PMAP[i.pocket];if(!p)continue;const g=(+i.g||0)*(i.q||1);
       if(p.vpos==='haut')up+=g;else dn+=g; if(p.side==='gauche')lf+=g;else if(p.side==='droite')rt+=g;}
     const ud=up+dn||1, lr=lf+rt||1, pct=(a,t)=>Math.round(a/t*100);
     $('#sacLoad').innerHTML=`
@@ -897,21 +897,86 @@ Hébergement : ${s.lodging}`;
         <div><div class="bal-head"><span>Gauche ${(lf/1000).toFixed(1)} kg</span><span>Droite ${(rt/1000).toFixed(1)} kg</span></div>
         <div class="bal-bar"><span class="bal-a" style="width:${pct(lf,lr)}%"></span><span class="bal-b" style="width:${pct(rt,lr)}%"></span></div></div>
       </div>
-      ${unw?`<div class="load-unweighed"><b>${unw}</b> objet${unw>1?'s':''} sans poids saisi</div>`:''}`;
+      ${unw?`<div class="load-unweighed"><b>${unw}</b> objet${unw>1?'s':''} sans poids saisi</div>`:''}
+      ${renderPorteurs()}`;
+  }
+  const PORTEURS = ['Thibault','Thomas','3e'];
+  function renderPorteurs(){
+    // regroupe le poids par porteur (owner) ; objets sans owner = 'commun' réparti visuellement
+    const byOwner={};
+    for(const i of sacPack){ const o=i.owner||'—'; byOwner[o]=(byOwner[o]||0)+(+i.g||0)*(i.q||1); }
+    const owners=Object.keys(byOwner).filter(o=>o!=='—');
+    if(!owners.length) return '';
+    const rows=owners.map(o=>`<div class="porteur-row"><span>${escSac(o)}</span><b>${(byOwner[o]/1000).toFixed(2)} kg</b></div>`).join('');
+    const commun=byOwner['—']?`<div class="porteur-row muted"><span>Non attribué</span><b>${(byOwner['—']/1000).toFixed(2)} kg</b></div>`:'';
+    return `<div class="porteurs"><div class="porteurs-title">Répartition entre porteurs</div>${rows}${commun}</div>`;
+  }
+
+  function updateCatalogueRow(name){
+    const q=sacQty(name,sacSel);
+    const val=$(`[data-qval="${cssEsc(name)}"]`, $('#sacPanel'));
+    if(val){ val.textContent=q; val.classList.toggle('on', q>0); }
+    const minus=$(`[data-qminus="${cssEsc(name)}"]`, $('#sacPanel'));
+    if(minus) minus.disabled = q<=0;
+    // maj compteur "n ici" de la catégorie parente
+    const row = val && val.closest('.cat');
+    if(row){ const cat=row.dataset.cat; const arr=SAC_CATALOGUE[cat]||[]; const nH=arr.reduce((s,o)=>s+sacQty(o.n,sacSel),0);
+      const cc=row.querySelector('summary .cat-count');
+      const sum=row.querySelector('summary');
+      if(nH){ if(cc) cc.textContent=nH+' ici'; else if(sum) sum.insertAdjacentHTML('beforeend',` <span class="cat-count">${nH} ici</span>`); }
+      else if(cc) cc.remove();
+    }
+  }
+  function cssEsc(s){ return (s||'').replace(/["\\]/g,'\\$&'); }
+  function refreshSacLight(){
+    // met à jour compteurs SVG + charge, sans reconstruire le catalogue ouvert
+    const counts=sacCounts();
+    $all('#sacPackwrap .szone').forEach(g=>{
+      const t=g.querySelector('.zcount'); if(t){ const n=counts[g.dataset.p]||0; /* garder le libellé numérique */ }
+    });
+    // redessiner le SVG compteurs : on réécrit juste les textes de compteur
+    $('#sacPackwrap').innerHTML=sacSVG(counts);
+    $all('#sacPackwrap .szone').forEach(g=>g.classList.toggle('sel',sacSel===g.dataset.p));
+    applySacHighlight();
+    renderSacLoad(); renderSacPrep(); drawCenterOfGravity();
+    const tot=sacTotalWeight(); const nObj=sacPack.reduce((s,i)=>s+(i.q||1),0);
+    $('#sacTot').textContent=sacPack.length?`${nObj} objet${nObj>1?'s':''} rangé${nObj>1?'s':''} · ${(tot/1000).toFixed(2)} kg`:'Sac vide';
+  }
+
+  let sacOpenCats = new Set();
+  function reopenCatalogue(){
+    $all('#sacPanel .cat').forEach(d=>{ if(sacOpenCats.has(d.dataset.cat)) d.open=true; });
+  }
+
+  function sacAdjustQty(name, delta){
+    if(!sacSel) return;
+    let it = sacPack.find(i=>i.name===name && i.pocket===sacSel);
+    if(delta>0){
+      if(it) it.q=(it.q||1)+1;
+      else { const m=SAC_META[name]; sacPack.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6),name,pocket:sacSel,g:m?m.g:0,q:1}); }
+    } else if(it){
+      it.q=(it.q||1)-1;
+      if(it.q<=0) sacPack=sacPack.filter(x=>x!==it);
+    }
+    saveSacPack();
   }
 
   function renderSacCatalogue(){
-    const inP=new Set(sacPack.filter(i=>i.pocket===sacSel).map(i=>i.name));
     const cats=Object.entries(SAC_CATALOGUE).map(([cat,arr])=>{
       const opts=arr.map(o=>{
-        const ck=inP.has(o.n), isI=(o.ideal||[]).includes(sacSel);
+        const qty=sacQty(o.n,sacSel), isI=(o.ideal||[]).includes(sacSel);
         const idn=(o.ideal||[]).map(z=>PMAP[z]?.name||z).join(', ');
-        return `<label class="opt ${ck?'here':''}"><input type="checkbox" data-opt="${escSac(o.n)}" ${ck?'checked':''}>
+        return `<div class="opt ${qty?'here':''}">
+          <div class="opt-stepper" role="group" aria-label="Quantité de ${escSac(o.n)}">
+            <button class="qbtn qminus" data-qminus="${escSac(o.n)}" aria-label="Retirer un ${escSac(o.n)}" ${qty?'':'disabled'}>−</button>
+            <span class="qval ${qty?'on':''}" data-qval="${escSac(o.n)}">${qty}</span>
+            <button class="qbtn qplus" data-qplus="${escSac(o.n)}" aria-label="Ajouter un ${escSac(o.n)}">+</button>
+          </div>
           <span class="o-nm">${escSac(o.n)}${o.lourd?' <span class="opt-heavy">◆ lourd</span>':''}</span>
           <span class="o-g">${o.g} g</span>
-          ${isI?'<span class="o-ideal">idéal ici</span>':`<span class="o-ideal" style="color:var(--text-soft);border-color:var(--border)" title="Idéal : ${escSac(idn)}">${escSac(PMAP[o.ideal[0]]?.name||'')}</span>`}</label>`;
+          ${isI?'<span class="o-ideal">idéal ici</span>':`<span class="o-ideal" style="color:var(--text-soft);border-color:var(--border)" title="Idéal : ${escSac(idn)}">${escSac(PMAP[o.ideal[0]]?.name||'')}</span>`}</div>`;
       }).join('');
-      const nH=arr.filter(o=>inP.has(o.n)).length;
+      const nH=arr.reduce((s,o)=>s+sacQty(o.n,sacSel),0);
       return `<details class="cat" data-cat="${escSac(cat)}"><summary>${escSac(cat)} ${nH?`<span class="cat-count">${nH} ici</span>`:''}</summary><div class="cat-body">${opts}</div></details>`;
     }).join('');
     return `<div class="catalogue">${cats}</div>`;
@@ -925,19 +990,30 @@ Hébergement : ${s.lodging}`;
     const itemsH=here.length?`<div class="pk-items">${here.map(i=>{
       const m=SAC_META[i.name]||{}, mis=m.ideal&&!m.ideal.includes(sacSel);
       const idn=(m.ideal||[]).map(z=>PMAP[z]?.name||z).join(', ');
-      return `<div class="pk-item"><span class="pk-nm">${escSac(i.name)}${m.lourd?'<span class="pk-heavy">lourd</span>':''}</span>
+      const q=i.q||1, lineW=(+i.g||0)*q;
+      return `<div class="pk-item"><span class="pk-nm">${escSac(i.name)}${q>1?`<span class="pk-qbadge">×${q}</span>`:''}${m.lourd?'<span class="pk-heavy">lourd</span>':''}</span>
         ${mis?`<button class="pk-advice" data-advise="${i.id}" title="Idéal : ${escSac(idn)}">→ ${escSac(PMAP[m.ideal[0]].name)}</button>`:''}
-        <input class="pk-wt" type="number" min="0" step="10" value="${i.g||0}" data-wt="${i.id}" aria-label="Poids"> <span style="font-family:ui-monospace,monospace;font-size:.65rem;color:var(--text-soft)">g</span>
+        <span class="pk-qstep"><button class="qbtn" data-pkminus="${i.id}" aria-label="Moins">−</button><span class="pk-q">${q}</span><button class="qbtn" data-pkplus="${i.id}" aria-label="Plus">+</button></span>
+        <input class="pk-wt" type="number" min="0" step="10" value="${i.g||0}" data-wt="${i.id}" aria-label="Poids unitaire" title="Poids unitaire (g)"> <span class="pk-linew" title="Poids total de la ligne">${lineW>=1000?(lineW/1000).toFixed(1)+'kg':lineW+'g'}</span>
+        <select class="pk-owner" data-owner="${i.id}" aria-label="Qui porte cet objet">
+          <option value="" ${!i.owner?'selected':''}>— porteur</option>
+          <option value="Thibault" ${i.owner==='Thibault'?'selected':''}>Thibault</option>
+          <option value="Thomas" ${i.owner==='Thomas'?'selected':''}>Thomas</option>
+          <option value="3e" ${i.owner==='3e'?'selected':''}>3e</option>
+        </select>
         <button class="pk-move" data-move="${i.id}" title="Déplacer">⇄</button>
         <button class="pk-del" data-del="${i.id}" aria-label="Retirer">✕</button></div>`;
     }).join('')}</div>`:`<div class="pocket-none" style="padding:18px">Cette poche est vide.</div>`;
-    panel.innerHTML=`<div class="pocket-head"><h3>${escSac(p.name)}</h3><span style="font-family:ui-monospace,monospace;font-size:.72rem;color:var(--gold)">${here.length} objet${here.length>1?'s':''}</span></div>
+    const hereQty=here.reduce((s,i)=>s+(i.q||1),0);
+    panel.innerHTML=`<div class="pocket-head"><h3>${escSac(p.name)}</h3><span style="font-family:ui-monospace,monospace;font-size:.72rem;color:var(--gold)">${hereQty} objet${hereQty>1?'s':''}</span></div>
       <p class="pocket-role">${escSac(p.role)}</p><div class="tips">${tipsH}</div>${itemsH}
       <button class="btn addbtn ${sacAddOpen?'':'btn-primary'}" id="sacToggleAdd">${sacAddOpen?'Fermer le catalogue':'Ajouter des objets'}</button>
       ${sacAddOpen?renderSacCatalogue():''}`;
   }
 
-  function sacCounts(){ const c={}; for(const i of sacPack) c[i.pocket]=(c[i.pocket]||0)+1; return c; }
+  function sacCounts(){ const c={}; for(const i of sacPack) c[i.pocket]=(c[i.pocket]||0)+(i.q||1); return c; }
+  function sacQty(name,pocket){ const it=sacPack.find(i=>i.name===name&&i.pocket===pocket); return it?(it.q||1):0; }
+  function sacTotalWeight(){ return sacPack.reduce((s,i)=>s+((+i.g||0)*(i.q||1)),0); }
   function applySacHighlight(){
     let hit=new Set();
     if(sacHoverCat&&SAC_CATALOGUE[sacHoverCat]){ const names=new Set(SAC_CATALOGUE[sacHoverCat].map(o=>o.n)); hit=new Set(sacPack.filter(i=>names.has(i.name)).map(i=>i.pocket)); }
@@ -946,9 +1022,9 @@ Hébergement : ${s.lodging}`;
   function renderSacVisuel(){
     $('#sacPackwrap').innerHTML=sacSVG(sacCounts());
     $all('#sacPackwrap .szone').forEach(g=>g.classList.toggle('sel',sacSel===g.dataset.p));
-    applySacHighlight(); renderSacLoad(); renderSacPanel();
-    const tot=sacPack.reduce((s,i)=>s+(+i.g||0),0);
-    $('#sacTot').textContent=sacPack.length?`${sacPack.length} objet${sacPack.length>1?'s':''} rangé${sacPack.length>1?'s':''} · ${(tot/1000).toFixed(2)} kg`:'Sac vide';
+    applySacHighlight(); renderSacLoad(); renderSacPrep(); renderSacPanel(); drawCenterOfGravity();
+    const tot=sacTotalWeight(); const nObj=sacPack.reduce((s,i)=>s+(i.q||1),0);
+    $('#sacTot').textContent=sacPack.length?`${nObj} objet${nObj>1?'s':''} rangé${nObj>1?'s':''} · ${(tot/1000).toFixed(2)} kg`:'Sac vide';
   }
 
   /* ── Sous-onglet Liste rapide ── */
@@ -981,7 +1057,163 @@ Hébergement : ${s.lodging}`;
     renderSacVisuel(); renderSacList();
   }
 
+
+  /* ── Profils par nuitée ── */
+  const SAC_PRESETS = {
+    refuge: { label:'Refuge', include:[
+      "Sac à viande / drap sac","Bouchons d'oreilles","Tongs / claquettes refuge","Vêtements de nuit",
+      "Réservations refuges","Barres énergétiques","Fruits secs / oléagineux","Pique-nique du midi","En-cas salés",
+      "T-shirt technique","Sous-couche manches longues","Short / pantalon de rando","Sous-vêtements","Chaussettes de rando",
+      "Polaire / midlayer","Doudoune compressible","Veste imperméable","Surpantalon imperméable","Gants","Bonnet / tour de cou",
+      "Casquette / chapeau","Lunettes de soleil","Poche à eau 2 L (pleine)","Gourde 1 L (pleine)","Pastilles / filtre à eau",
+      "Brosse à dents + dentifrice","Savon biodégradable","Papier toilette","Gel hydroalcoolique","Crème solaire","Stick lèvres",
+      "Serviette microfibre","Pansements ampoules","Antalgiques / anti-inflam.","Couverture de survie","Sifflet","Pince à tiques",
+      "Crème anti-frottement","Traitement personnel","Carte IGN / topoguide","Papiers d'identité","CB / carte d'assurance",
+      "Cash EUR + CHF","Montre GPS","Téléphone","Batterie externe","Câbles de charge","Frontale + piles","Adaptateur suisse",
+      "Bâtons de marche","Housse de pluie du sac","Sacs étanches"] },
+    bivouac: { label:'Bivouac', include:'ALL_LIGHT' },
+    tente:   { label:'Tente',   include:'ALL' }
+  };
+
+  function applyPreset(kind){
+    const preset = SAC_PRESETS[kind]; if(!preset) return;
+    if(!confirm(`Charger le profil « ${preset.label} » ? Cela remplace le contenu actuel du sac par une base pré-remplie que tu pourras ajuster.`)) return;
+    sacPack = [];
+    let names;
+    if(preset.include==='ALL'){ names = Object.values(SAC_CATALOGUE).flat().map(o=>o.n); }
+    else if(preset.include==='ALL_LIGHT'){ names = Object.values(SAC_CATALOGUE).flat().map(o=>o.n).filter(n=> n!=='Tente (toile)' && n!=='Arceaux de tente'); }
+    else { names = preset.include; }
+    for(const name of names){ const m=SAC_META[name]; if(!m) continue;
+      const pocket=(m.ideal&&m.ideal[0])||'main';
+      sacPack.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,7),name,pocket,g:m.g,q:1}); }
+    sacSel=null; sacAddOpen=false; saveSacPack(); renderSacVisuel();
+    showToast(`Profil « ${preset.label} » chargé — ${names.length} objets placés.`);
+  }
+
+  /* ── Répartition automatique ── */
+  function autoDistribute(){
+    if(!sacPack.length){ showToast("Ajoute d'abord des objets au sac."); return; }
+    if(!confirm('Ranger automatiquement chaque objet dans sa poche idéale ? Tu pourras ensuite ajuster à la main.')) return;
+    let meshToggle=0;
+    for(const it of sacPack){ const m=SAC_META[it.name]; if(!m||!m.ideal||!m.ideal.length) continue;
+      let target=m.ideal[0];
+      if(m.ideal.includes('mesh_left') && m.ideal.includes('mesh_right')){ target=(meshToggle++%2===0)?'mesh_left':'mesh_right'; }
+      it.pocket=target; }
+    const gas=sacPack.filter(i=>SAC_META[i.name]?.sep_food && i.pocket==='main');
+    const food=sacPack.some(i=>SAC_META[i.name]?.cat==='Alimentation' && i.pocket==='main');
+    if(gas.length && food){ gas.forEach(g=>g.pocket='bottom'); }
+    saveSacPack(); renderSacVisuel();
+    showToast('Rangement optimisé : lourd centré, gaz séparé de la nourriture, gourdes équilibrées.');
+  }
+
+  /* ── Score de préparation ── */
+  const SAC_ESSENTIALS = [
+    {n:'Frontale + piles', why:'lumière obligatoire en refuge et bivouac'},
+    {n:'Couverture de survie', why:'sécurité en montagne'},
+    {n:'Veste imperméable', why:'météo changeante en altitude'},
+    {n:"Papiers d'identité", why:'passage France/Italie/Suisse'},
+    {n:'Cash EUR + CHF', why:'refuges suisses souvent en espèces'},
+    {n:'Pansements ampoules', why:'le mal n°1 du randonneur'},
+    {n:'Crème solaire', why:'réverbération en altitude'},
+    {n:'Bâtons de marche', why:'genoux préservés en descente'},
+    {n:'Poche à eau 2 L (pleine)', why:"hydratation entre points d'eau", alt:'Gourde 1 L (pleine)'},
+    {n:'Doudoune compressible', why:'froid aux cols et le soir'},
+  ];
+  function renderSacPrep(){
+    const el=$('#sacPrep'); if(!el) return;
+    const has=name=>sacPack.some(i=>i.name===name && (i.q||1)>0);
+    const missing=SAC_ESSENTIALS.filter(e=> !has(e.n) && !(e.alt && has(e.alt)));
+    const total=SAC_ESSENTIALS.length, okCount=total-missing.length, pct=Math.round(okCount/total*100);
+    const ring=pct>=100?'full':pct>=70?'good':pct>=40?'mid':'low';
+    el.innerHTML=`
+      <div class="prep-ring prep-${ring}">
+        <svg viewBox="0 0 44 44" aria-hidden="true"><circle class="prep-bg" cx="22" cy="22" r="19"/><circle class="prep-fg" cx="22" cy="22" r="19" style="stroke-dasharray:${(pct*119.4/100).toFixed(1)} 119.4"/></svg>
+        <span class="prep-pct">${pct}%</span>
+      </div>
+      <div class="prep-body">
+        <b>Préparation : ${okCount}/${total} indispensables</b>
+        ${missing.length?`<div class="prep-missing">Manque : ${missing.map(m=>`<button class="prep-chip" data-prep-add="${escSac(m.n)}" title="${escSac(m.why)} — cliquer pour ajouter">${escSac(m.n)}</button>`).join('')}</div>`:`<span class="prep-done">✓ Tous les indispensables sont dans le sac.</span>`}
+      </div>`;
+  }
+
+  /* ── Centre de gravité ── */
+  const POCKET_XY = {
+    lid_top:{x:128,y:50}, lid_under:{x:128,y:86}, main:{x:138,y:165}, hydration:{x:57,y:150},
+    front:{x:138,y:255}, bottom:{x:128,y:340}, mesh_left:{x:33,y:300}, mesh_right:{x:227,y:300},
+    straps:{x:138,y:145}, hipbelt:{x:128,y:388}
+  };
+  function centerOfGravity(){
+    let sx=0,sy=0,sw=0;
+    for(const i of sacPack){ const xy=POCKET_XY[i.pocket]; if(!xy)continue; const w=(+i.g||0)*(i.q||1); if(w<=0)continue; sx+=xy.x*w; sy+=xy.y*w; sw+=w; }
+    if(sw<=0) return null; return {x:sx/sw, y:sy/sw};
+  }
+
+  /* ── Export ── */
+  function exportSac(){
+    if(!sacPack.length){ showToast('Le sac est vide.'); return; }
+    const lines=['SAC — TMB Golgothes 2026','Millet Khumbu 65+10',''];
+    let tot=0;
+    for(const p of POCKETS){ const here=sacPack.filter(i=>i.pocket===p.id); if(!here.length) continue;
+      lines.push('■ '+p.name.toUpperCase());
+      for(const i of here){ const q=i.q||1, lw=(+i.g||0)*q; tot+=lw; lines.push('   '+(q>1?q+'× ':'')+i.name+(lw?' — '+lw+' g':'')); }
+      lines.push(''); }
+    lines.push('TOTAL : '+(tot/1000).toFixed(2)+' kg');
+    const txt=lines.join('\n');
+    if(navigator.clipboard){ navigator.clipboard.writeText(txt).then(()=>showToast('Récapitulatif copié.')).catch(()=>fallbackCopy(txt)); }
+    else fallbackCopy(txt);
+  }
+  function fallbackCopy(txt){ try{ prompt('Copie ce récapitulatif :', txt); }catch(e){} }
+
+  function showToast(msg){
+    const t=$('#toast'); if(t){ t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3200); } else alert(msg);
+  }
+
+  function drawCenterOfGravity(){
+    const svg = $('#sacPackwrap svg'); if(!svg) return;
+    const old = svg.querySelector('.cog-layer'); if(old) old.remove();
+    const cg = centerOfGravity(); if(!cg) return;
+    const ns='http://www.w3.org/2000/svg';
+    const g=document.createElementNS(ns,'g'); g.setAttribute('class','cog-layer'); g.style.pointerEvents='none';
+    // cible idéale : haut, près du dos
+    const tx=118, ty=150;
+    const target=document.createElementNS(ns,'circle');
+    target.setAttribute('cx',tx); target.setAttribute('cy',ty); target.setAttribute('r','6');
+    target.setAttribute('fill','none'); target.setAttribute('stroke','var(--glacier)'); target.setAttribute('stroke-width','1'); target.setAttribute('stroke-dasharray','2 2'); target.setAttribute('opacity','.6');
+    g.appendChild(target);
+    // ligne cible -> CG
+    const line=document.createElementNS(ns,'line');
+    line.setAttribute('x1',tx); line.setAttribute('y1',ty); line.setAttribute('x2',cg.x.toFixed(1)); line.setAttribute('y2',cg.y.toFixed(1));
+    line.setAttribute('stroke','var(--rust)'); line.setAttribute('stroke-width','1'); line.setAttribute('opacity','.5');
+    g.appendChild(line);
+    // point CG
+    const dist=Math.hypot(cg.x-tx, cg.y-ty);
+    const good = dist < 40;
+    const c=document.createElementNS(ns,'circle');
+    c.setAttribute('cx',cg.x.toFixed(1)); c.setAttribute('cy',cg.y.toFixed(1)); c.setAttribute('r','7');
+    c.setAttribute('fill', good?'var(--pine)':'var(--rust)'); c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width','2');
+    g.appendChild(c);
+    const t=document.createElementNS(ns,'text');
+    t.setAttribute('x',cg.x.toFixed(1)); t.setAttribute('y',(cg.y+3).toFixed(1)); t.setAttribute('text-anchor','middle');
+    t.setAttribute('font-size','7'); t.setAttribute('font-weight','900'); t.setAttribute('fill','#fff'); t.textContent='CG';
+    g.appendChild(t);
+    svg.appendChild(g);
+  }
+
   function bindSacEvents(){
+    // presets nuitée + actions barre d'outils
+    document.addEventListener('click', e=>{
+      const pre=e.target.closest('[data-preset]'); if(pre){ applyPreset(pre.dataset.preset); return; }
+      if(e.target.closest('#sacAutoBtn')){ autoDistribute(); return; }
+      if(e.target.closest('#sacExportBtn')){ exportSac(); return; }
+      const pa=e.target.closest('[data-prep-add]'); if(pa){
+        const name=pa.dataset.prepAdd; const m=SAC_META[name];
+        if(m){ const pocket=(m.ideal&&m.ideal[0])||'main';
+          const ex=sacPack.find(i=>i.name===name && i.pocket===pocket);
+          if(ex) ex.q=(ex.q||1)+1; else sacPack.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,7),name,pocket,g:m.g,q:1});
+          saveSacPack(); renderSacVisuel(); showToast(`${name} ajouté (${PMAP[pocket].name}).`); }
+        return;
+      }
+    });
     // sous-onglets
     document.addEventListener('click', e=>{
       const st=e.target.closest('[data-subtab]'); if(!st) return;
@@ -1008,17 +1240,26 @@ Hébergement : ${s.lodging}`;
         const ans=prompt(`Déplacer « ${it.name} » vers quelle poche ?\n\n${opts}\n\nEntre un numéro (1–10) :`);
         const idx=parseInt(ans,10); if(idx>=1&&idx<=POCKETS.length){ it.pocket=POCKETS[idx-1].id; saveSacPack(); renderSacVisuel(); } return; }
     });
-    // cocher catalogue + éditer poids
-    document.addEventListener('change', e=>{
-      const cb=e.target.closest('[data-opt]');
-      if(cb&&sacSel){ const name=cb.dataset.opt;
-        if(cb.checked){ const m=SAC_META[name]; sacPack.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6),name,pocket:sacSel,g:m?m.g:0}); }
-        else{ const i=sacPack.findIndex(x=>x.name===name&&x.pocket===sacSel); if(i>=0) sacPack.splice(i,1); }
-        saveSacPack(); renderSacVisuel(); return; }
-      const wt=e.target.closest('[data-wt]');
-      if(wt){ const it=sacPack.find(i=>i.id===wt.dataset.wt); if(it){ it.g=+wt.value||0; saveSacPack(); renderSacLoad();
-        const tot=sacPack.reduce((s,i)=>s+(+i.g||0),0); $('#sacTot').textContent=`${sacPack.length} objet${sacPack.length>1?'s':''} rangé${sacPack.length>1?'s':''} · ${(tot/1000).toFixed(2)} kg`; } return; }
+    // steppers catalogue (+/−) et steppers poche
+    document.addEventListener('click', e=>{
+      if(!$('[data-panel="sac"]')?.classList.contains('is-active')) return;
+      const qp=e.target.closest('[data-qplus]'); if(qp){ const name=qp.dataset.qplus; sacAdjustQty(name,+1); updateCatalogueRow(name); refreshSacLight(); return; }
+      const qm=e.target.closest('[data-qminus]'); if(qm){ const name=qm.dataset.qminus; sacAdjustQty(name,-1); updateCatalogueRow(name); refreshSacLight(); return; }
+      const pp=e.target.closest('[data-pkplus]'); if(pp){ const it=sacPack.find(i=>i.id===pp.dataset.pkplus); if(it){ it.q=(it.q||1)+1; saveSacPack(); renderSacVisuel(); } return; }
+      const pm=e.target.closest('[data-pkminus]'); if(pm){ const it=sacPack.find(i=>i.id===pm.dataset.pkminus); if(it){ it.q=(it.q||1)-1; if(it.q<=0) sacPack=sacPack.filter(x=>x!==it); saveSacPack(); renderSacVisuel(); } return; }
     });
+    // éditer le poids unitaire
+    document.addEventListener('change', e=>{
+      const wt=e.target.closest('[data-wt]');
+      if(wt){ const it=sacPack.find(i=>i.id===wt.dataset.wt); if(it){ it.g=+wt.value||0; saveSacPack(); renderSacVisuel(); } return; }
+      const ow=e.target.closest('[data-owner]');
+      if(ow){ const it=sacPack.find(i=>i.id===ow.dataset.owner); if(it){ it.owner=ow.value||undefined; saveSacPack(); renderSacLoad(); } return; }
+    });
+    // mémoriser les catégories ouvertes
+    document.addEventListener('toggle', e=>{
+      const c=e.target.closest('.cat'); if(!c||!c.dataset.cat) return;
+      if(c.open) sacOpenCats.add(c.dataset.cat); else sacOpenCats.delete(c.dataset.cat);
+    }, true);
     // survol catégories -> highlight balise GR
     document.addEventListener('mouseover', e=>{ const c=e.target.closest('.cat'); if(c){ sacHoverCat=c.dataset.cat; applySacHighlight(); } });
     document.addEventListener('mouseout', e=>{ const c=e.target.closest('.cat'); if(c&&!c.contains(e.relatedTarget)){ sacHoverCat=null; applySacHighlight(); } });

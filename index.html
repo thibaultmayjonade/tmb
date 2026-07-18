@@ -157,6 +157,19 @@
 
       <!-- SOUS-VUE : schéma 10 poches -->
       <div class="sac-subview is-active" data-subview="sac-visuel">
+        <div class="sac-toolbar">
+          <div class="sac-tool-group" role="group" aria-label="Type de nuitée">
+            <span class="sac-tool-label">Nuit :</span>
+            <button class="sac-preset" data-preset="refuge">Refuge</button>
+            <button class="sac-preset" data-preset="bivouac">Bivouac</button>
+            <button class="sac-preset" data-preset="tente">Tente</button>
+          </div>
+          <div class="sac-tool-actions">
+            <button class="btn btn-primary" id="sacAutoBtn" title="Placer chaque objet dans sa poche idéale">✦ Ranger pour moi</button>
+            <button class="btn" id="sacExportBtn" title="Récapitulatif à copier">⧉ Export</button>
+          </div>
+        </div>
+        <div class="sac-prep" id="sacPrep"></div>
         <div class="load-panel" id="sacLoad"></div>
         <div class="sac-layout">
           <div>

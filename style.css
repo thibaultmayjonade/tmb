@@ -758,3 +758,62 @@ html.dark .o-ideal{color:#7ecfa0}
 .sac-empty{padding:24px 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;color:var(--text-soft);font-size:.85rem;line-height:1.6}
 .sac-empty b{color:var(--text)}
 .sac-foot{display:flex;justify-content:space-between;align-items:center;margin-top:16px;gap:10px;flex-wrap:wrap}
+
+/* ── Steppers quantité (catalogue + poche) ── */
+.opt-stepper{display:inline-flex;align-items:center;gap:2px;flex:0 0 auto;background:var(--surface-soft);border:1px solid var(--border);border-radius:8px;padding:2px}
+.qbtn{width:26px;height:26px;border:0;background:none;color:var(--text);font-size:1.1rem;font-weight:900;cursor:pointer;border-radius:6px;line-height:1;display:grid;place-items:center;padding:0}
+.qbtn:hover:not(:disabled){background:var(--pine);color:#fff}
+.qbtn:disabled{opacity:.3;cursor:default}
+html.dark .qbtn:hover:not(:disabled){background:#7ecfa0;color:var(--ink)}
+.qval{min-width:22px;text-align:center;font-family:ui-monospace,monospace;font-size:.85rem;font-weight:900;color:var(--text-soft)}
+.qval.on{color:var(--pine)}
+html.dark .qval.on{color:#7ecfa0}
+.opt{display:flex;align-items:center;gap:10px}
+.pk-qstep{display:inline-flex;align-items:center;gap:1px;background:var(--surface-soft);border:1px solid var(--border);border-radius:7px;padding:1px}
+.pk-qstep .qbtn{width:22px;height:22px;font-size:.95rem}
+.pk-q{min-width:18px;text-align:center;font-family:ui-monospace,monospace;font-size:.75rem;font-weight:900;color:var(--text)}
+.pk-qbadge{font-family:ui-monospace,monospace;font-size:.68rem;font-weight:900;color:var(--gold);background:rgba(200,168,75,.15);border-radius:4px;padding:1px 5px;margin-left:4px}
+.pk-linew{font-family:ui-monospace,monospace;font-size:.68rem;color:var(--text-soft);min-width:42px;text-align:right}
+
+/* ── Barre d'outils Sac ── */
+.sac-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:14px}
+.sac-tool-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sac-tool-label{font-family:ui-monospace,monospace;font-size:.72rem;color:var(--text-soft);font-weight:900;margin-right:2px}
+.sac-preset{font-family:inherit;font-size:.82rem;font-weight:900;background:var(--surface-soft);border:1px solid var(--border);color:var(--text);padding:7px 14px;border-radius:999px;cursor:pointer;transition:all .15s}
+.sac-preset:hover{border-color:var(--pine);color:var(--pine)}
+html.dark .sac-preset:hover{border-color:#7ecfa0;color:#7ecfa0}
+.sac-tool-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ── Score de préparation ── */
+.sac-prep{display:flex;align-items:center;gap:16px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:14px}
+.prep-ring{position:relative;width:56px;height:56px;flex:0 0 auto}
+.prep-ring svg{width:56px;height:56px;transform:rotate(-90deg)}
+.prep-bg{fill:none;stroke:var(--surface-soft);stroke-width:4}
+.prep-fg{fill:none;stroke-width:4;stroke-linecap:round;transition:stroke-dasharray .5s ease}
+.prep-full .prep-fg{stroke:var(--pine)} html.dark .prep-full .prep-fg{stroke:#7ecfa0}
+.prep-good .prep-fg{stroke:var(--glacier)}
+.prep-mid .prep-fg{stroke:var(--gold)}
+.prep-low .prep-fg{stroke:var(--rust)}
+.prep-pct{position:absolute;inset:0;display:grid;place-items:center;font-family:ui-monospace,monospace;font-size:.78rem;font-weight:900;color:var(--text)}
+.prep-body{flex:1;min-width:0}
+.prep-body>b{font-size:.9rem;color:var(--text);display:block;margin-bottom:5px}
+.prep-missing{font-size:.75rem;color:var(--text-soft);display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.prep-chip{font-family:inherit;font-size:.72rem;font-weight:700;background:rgba(192,84,42,.1);border:1px solid rgba(192,84,42,.3);color:var(--rust);padding:3px 9px;border-radius:999px;cursor:pointer}
+.prep-chip:hover{background:rgba(192,84,42,.2)}
+.prep-done{font-size:.8rem;color:var(--pine);font-weight:700}
+html.dark .prep-done{color:#7ecfa0}
+
+/* ── Toast (au cas où pas déjà stylé) ── */
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink,#1d2420);color:#fff;
+  padding:12px 20px;border-radius:12px;font-size:.85rem;font-weight:700;box-shadow:0 8px 30px rgba(0,0,0,.3);
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:9999;max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── Répartition porteurs ── */
+.porteurs{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.porteurs-title{font-family:ui-monospace,monospace;font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-soft);font-weight:900;margin-bottom:6px}
+.porteur-row{display:flex;justify-content:space-between;align-items:center;font-size:.82rem;padding:3px 0;color:var(--text)}
+.porteur-row b{font-family:ui-monospace,monospace;color:var(--gold)}
+.porteur-row.muted{color:var(--text-soft)}
+.pk-owner{font-family:inherit;font-size:.72rem;background:var(--surface-soft);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 5px;max-width:92px}
+.pk-owner:focus{outline:none;border-color:var(--glacier)}
